@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · iPullRank IDP{% endblock %}
+
+{% block content %}
+<header class="mb-6">
+  <h1 class="text-2xl font-semibold text-slate-900">Internal Tools</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Welcome, {{ current_user.name }}. Pick a tool to get started.
+  </p>
+</header>
+
+{% if tools %}
+<div class="grid gap-4 md:grid-cols-3">
+  {% for tool in tools %}
+  <a href="{{ tool.url }}" target="_blank" rel="noopener"
+     class="block bg-white border border-slate-200 rounded-lg p-5 hover:border-slate-400
+            hover:shadow-sm transition">
+    <h2 class="font-medium text-slate-900">{{ tool.name }}</h2>
+    <p class="mt-1 text-sm text-slate-500">{{ tool.description }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-slate-500">No tools registered yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}iPullRank IDP{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full text-slate-800">
+  <nav class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="{{ url_for('routes.dashboard') }}" class="font-semibold text-slate-900">
+        iPullRank · Developer Portal
+      </a>
+      {% if current_user.is_authenticated %}
+        <div class="flex items-center gap-4 text-sm">
+          <span class="text-slate-500">{{ current_user.email }}</span>
+          <a href="{{ url_for('routes.logout') }}"
+             class="text-slate-700 hover:text-slate-900 underline">Sign out</a>
+        </div>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-6 space-y-2">
+          {% for category, message in messages %}
+            {% set tone = 'bg-red-50 text-red-800 border-red-200' if category == 'error'
+                          else 'bg-green-50 text-green-800 border-green-200' %}
+            <div class="border rounded-md px-4 py-2 text-sm {{ tone }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
