@@ -3,8 +3,10 @@
 A Flask app, secured by Google OAuth 2.0, that serves as a single landing page
 and tool directory for internal developers.
 
-> **Status:** Phase 1 is **live on PythonAnywhere** (paid account) with working
-> Google OAuth. PythonAnywhere is the current production host.
+> **Status:** **live on PythonAnywhere** (paid account). Google OAuth login, a
+> SQLite-backed tool catalog with a REST API, persisted users with admin/member
+> **roles + per-tool ownership**, and a server-rendered **management UI** are all
+> in production. PythonAnywhere is the current production host.
 >
 > **Roadmap resequenced:** Phase 2 (edge SSO via NGINX + oauth2-proxy) requires a
 > Docker-capable host, which PythonAnywhere is not — so it is **deferred** until a
@@ -17,9 +19,36 @@ and tool directory for internal developers.
 | Phase | Goal | State |
 |-------|------|-------|
 | 1 | Flask hub + Flask-Dance Google OAuth on PythonAnywhere | ✅ Done |
-| 3 | Serve a Claude Code plugin `marketplace.json` from Flask | ⏭️ Next (PA-friendly) |
-| 4 | GitHub scaffolding via PyGithub | Next (PA-friendly) |
+| 1.5 | DB-backed tool catalog + REST API + roles/ownership + management UI | ✅ Done |
+| 3 | Serve a Claude Code plugin `marketplace.json` from Flask | ⏭️ Next (in planning) — see `Phase 3 Game Plan_ Claude Marketplace.md` |
+| 4 | GitHub scaffolding via PyGithub | Planned (PA-friendly) |
 | 2 | Containerize; NGINX + oauth2-proxy edge auth; strip OAuth from Flask | ⏸️ Deferred — needs a Docker VM, not PythonAnywhere |
+
+## Quickstart: fresh setup (no database yet)
+
+Starting from a clean checkout with no `idp.db`. On PythonAnywhere, run these in a
+Bash console with the virtualenv active; locally, the same minus the reload.
+
+```bash
+git pull
+pip install -r requirements.txt          # Flask-SQLAlchemy / Flask-Migrate are required
+
+# .env is gitignored — create it on the machine if absent, then fill it in.
+cp .env.example .env                      # skip if you already have one
+#   required: FLASK_SECRET_KEY, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+#   set:      IDP_ADMINS=bryan@ipullrank.com   (makes you admin on login)
+#   local only: OAUTHLIB_INSECURE_TRANSPORT=1  (never on PythonAnywhere)
+
+FLASK_APP=app flask db upgrade            # builds the schema (users + tools) from migrations
+FLASK_APP=app flask seed-tools            # loads placeholder tools (idempotent)
+```
+
+Then **reload** the PythonAnywhere web app (or `python run.py` locally) and sign
+in. Because your email is in `IDP_ADMINS`, your first login makes you an admin.
+
+> `flask db upgrade` *applies* the committed migration — you do **not** run
+> `flask db init` / `flask db migrate` for setup (those author new migrations).
+> Since there was no DB before, this builds it from scratch in one shot.
 
 ## How it works
 
@@ -191,9 +220,14 @@ avoiding Google's `redirect_uri_mismatch` error.
 
 ## What's next
 
-We're building **Phase 3 and/or Phase 4 on PythonAnywhere** (both are supported
-by the paid account). Phase 1's `app/auth.py` Google OAuth stays in place — new
-phases add endpoints to the same Flask app behind the existing login.
+**Phase 3 — the Claude Code plugin marketplace** is up next on PythonAnywhere:
+Flask serves a token-gated `marketplace.json` cataloging internal plugins (whose
+code lives in GitHub repos), so developers can `/plugin marketplace add` it and
+install org skills natively. It reuses the catalog/repository/roles/ownership/UI
+patterns already built. Full design + verified spec details in
+[`Phase 3 Game Plan_ Claude Marketplace.md`](./Phase%203%20Game%20Plan_%20Claude%20Marketplace.md).
+Phase 4 (GitHub scaffolding) follows. Both add endpoints to this same Flask app
+behind the existing login.
 
 **Phase 2 is deferred.** It moves the app into containers with **NGINX +
 oauth2-proxy** doing edge auth (true cross-tool SSO; Flask-Dance removed in favor
