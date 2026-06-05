@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import logging
 
-from flask import current_app, flash, redirect, url_for
+from flask import current_app, flash
 from flask_dance.consumer import oauth_authorized
 from flask_dance.contrib.google import make_google_blueprint
 from flask_login import login_user
 
-from .extensions import login_manager
+from .authz import is_seed_admin
+from .extensions import db, login_manager
 from .models import User
+from .repositories import SqlAlchemyUserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +44,14 @@ def is_allowed_email(email: str | None, domain: str) -> bool:
 
 @login_manager.user_loader
 def load_user(user_id: str) -> User | None:
-    """Rebuild the transient user from the email stored in the session."""
+    """Load the persisted user by primary key stored in the session."""
     if not user_id:
         return None
-    return User(email=user_id)
+    try:
+        pk = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    return db.session.get(User, pk)
 
 
 @oauth_authorized.connect_via(google_bp)
@@ -71,8 +77,12 @@ def google_logged_in(blueprint, token):
         logger.warning("Rejected sign-in for non-allowed email: %r", email)
         return False
 
-    login_user(User(email=email, name=info.get("name")))
-    flash(f"Signed in as {email}.", "success")
+    seed_admin = is_seed_admin(email, current_app.config.get("IDP_ADMINS", set()))
+    user = SqlAlchemyUserRepository().upsert_on_login(
+        email=email, name=info.get("name"), seed_admin=seed_admin
+    )
+    login_user(user)
+    flash(f"Signed in as {user.email}.", "success")
 
     # Return False so Flask-Dance does not also persist the OAuth token —
     # Flask-Login owns the session from here.

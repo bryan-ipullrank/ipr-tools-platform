@@ -6,7 +6,7 @@ from flask import Blueprint, redirect, render_template, url_for
 from flask_dance.contrib.google import google
 from flask_login import current_user, login_required, logout_user
 
-from .tools import TOOLS
+from .repositories import SqlAlchemyToolRepository
 
 routes = Blueprint("routes", __name__)
 
@@ -23,7 +23,8 @@ def login():
 @login_required
 def dashboard():
     """The internal tool directory. Requires a signed-in, allowed user."""
-    return render_template("dashboard.html", tools=TOOLS)
+    tools = SqlAlchemyToolRepository().list()
+    return render_template("dashboard.html", tools=tools)
 
 
 @routes.route("/logout")

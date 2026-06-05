@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ "Add tool" if mode == "new" else "Edit tool" }} · iPullRank IDP{% endblock %}
+
+{% set action = url_for('manage.create_tool') if mode == 'new'
+                else url_for('manage.edit_tool', tool_id=tool.id) %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <h1 class="text-2xl font-semibold text-slate-900 mb-6">
+    {{ "Add a tool" if mode == "new" else "Edit tool" }}
+  </h1>
+
+  {% if errors %}
+  <div class="mb-4 border border-red-200 bg-red-50 text-red-800 rounded-md px-4 py-3 text-sm">
+    <ul class="list-disc list-inside space-y-1">
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action }}" class="space-y-4 bg-white border border-slate-200 rounded-lg p-6">
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Name</label>
+      <input name="name" value="{{ form.get('name', '') }}" required
+             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700">URL</label>
+      <input name="url" type="url" value="{{ form.get('url', '') }}" required
+             placeholder="https://…"
+             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Description</label>
+      <textarea name="description" rows="2"
+                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">{{ form.get('description', '') }}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Category</label>
+        <input name="category" value="{{ form.get('category', '') }}"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Sort order</label>
+        <input name="sort_order" type="number" value="{{ form.get('sort_order', 0) }}"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+      </div>
+    </div>
+
+    {% if users %}
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Owner (admin)</label>
+      <select name="owner_id"
+              class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <option value="">— unowned —</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if form.get('owner_id')|string == u.id|string %}selected{% endif %}>
+          {{ u.email }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <label class="flex items-center gap-2 text-sm text-slate-700">
+      <input type="checkbox" name="is_active" {% if form.get('is_active', True) %}checked{% endif %}>
+      Active (shown on the dashboard)
+    </label>
+
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+        {{ "Create" if mode == "new" else "Save changes" }}
+      </button>
+      <a href="{{ url_for('routes.dashboard') }}" class="text-sm text-slate-600 hover:text-slate-900">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

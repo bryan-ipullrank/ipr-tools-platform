@@ -1,5 +1,20 @@
 # **Phase 1 Game Plan: Minimal Flask Internal Developer Portal**
 
+> ✅ **STATUS: COMPLETE — live on PythonAnywhere with working Google OAuth.**
+> This document is the original plan, kept for reference. The shipped app follows
+> it closely with a few additions made during build/deploy:
+> - `app/extensions.py` holds the shared `LoginManager` to avoid circular imports.
+> - The app factory wraps `ProxyFix` and sets `PREFERRED_URL_SCHEME=https` so OAuth
+>   works behind PythonAnywhere's TLS-terminating proxy (no `redirect_uri_mismatch`).
+> - `.env` is loaded by absolute path and validated with a **self-diagnosing**
+>   error (names the exact path checked) because `.env` is gitignored and must be
+>   created on the server, not uploaded.
+> - Auth is **domain-check only, no database** (`is_allowed_email`, unit-tested).
+> - Tooling added: `conftest.py` (test path), `mypy.ini` (stub-noise config),
+>   `tests/test_auth.py`.
+>
+> See `README.md` for run/deploy instructions and the Phase 2 game plan for what's next.
+
 **Objective:** Build a lightweight, centralized Flask web application secured by Google OAuth 2.0 to serve as the landing page and tool registry for internal developers. Defer reverse-proxy downstream authentication to Phase 2\.
 
 ## **1\. Prerequisites & Google Console Setup**

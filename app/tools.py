@@ -1,14 +1,15 @@
-"""Registry of internal tools shown on the dashboard.
+"""Seed data for the tool catalog.
 
-Phase 1 is a static directory: edit this list to add, remove, or relabel a
-tool tile. Each entry needs ``name``, ``url``, and ``description``.
+The catalog now lives in the database (see ``app/models.py`` ``Tool`` and the
+``seed-tools`` CLI command). This list is the one-time seed used to populate an
+empty table — it is no longer read directly by the dashboard.
 
 These are placeholders — replace the URLs with the real internal endpoints.
 """
 
 from __future__ import annotations
 
-TOOLS: list[dict[str, str]] = [
+SEED_TOOLS: list[dict[str, str]] = [
     {
         "name": "GitHub Organization",
         "url": "https://github.com/ipullrank",

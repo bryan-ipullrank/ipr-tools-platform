@@ -57,7 +57,11 @@ By adhering to Anthropic's official Plugin Marketplace specification, we elimina
 
 ## **Implementation Roadmap**
 
-* **Phase 1 (Current):** Standalone Flask Hub \+ Flask-Dance Google OAuth (Hosted on PythonAnywhere).  
-* **Phase 2 (Infrastructure Migration):** Containerize the Flask app. Deploy NGINX and oauth2-proxy to handle edge authentication. Strip OAuth out of the Flask layer.  
-* **Phase 3 (The Claude Marketplace):** Build the REST endpoints in Flask to dynamically generate and serve a valid marketplace.json catalog. Construct the internal directory structure to host the plugin payloads (SKILL.md files, manifests, etc.) directly from the server.  
-* **Phase 4 (GitHub Scaffolding):** Integrate PyGithub. Build the UI forms and background workers to automate repository generation.
+> **Note (2026-06-05):** Execution order resequenced. Phase 2 needs a Docker-capable
+> host, which PythonAnywhere is not, so it is deferred. Phases 3 and 4 run on the
+> paid PythonAnywhere account and are being built first.
+
+* **Phase 1 ✅ DONE:** Standalone Flask Hub \+ Flask-Dance Google OAuth, **live on PythonAnywhere**. See `Phase 1 Game Plan_ Minimal Flask IDP.md` and `README.md`.  
+* **Phase 3 ⏭️ NEXT (The Claude Marketplace):** Build the REST endpoints in Flask to dynamically generate and serve a valid marketplace.json catalog. Construct the internal directory structure to host the plugin payloads (SKILL.md files, manifests, etc.) directly from the server. *(PythonAnywhere-friendly.)*  
+* **Phase 4 NEXT (GitHub Scaffolding):** Integrate PyGithub. Build the UI forms and background workers to automate repository generation. *(PythonAnywhere-friendly — uses always-on tasks + unrestricted outbound.)*  
+* **Phase 2 ⏸️ DEFERRED (Infrastructure Migration):** Containerize the Flask app. Deploy NGINX and oauth2-proxy to handle edge authentication. Strip OAuth out of the Flask layer. **Requires a Docker VM (not PythonAnywhere). Detailed plan: `Phase 2 Game Plan_ Containerized IAP.md`.**

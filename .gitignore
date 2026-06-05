@@ -8,6 +8,10 @@ __pycache__/
 .venv/
 venv/
 
+# Database (SQLite)
+*.db
+instance/
+
 # Tooling
 .pytest_cache/
 .coverage

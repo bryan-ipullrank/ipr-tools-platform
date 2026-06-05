@@ -2,25 +2,46 @@
 {% block title %}Dashboard · iPullRank IDP{% endblock %}
 
 {% block content %}
-<header class="mb-6">
-  <h1 class="text-2xl font-semibold text-slate-900">Internal Tools</h1>
-  <p class="mt-1 text-sm text-slate-500">
-    Welcome, {{ current_user.name }}. Pick a tool to get started.
-  </p>
+<header class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Internal Tools</h1>
+    <p class="mt-1 text-sm text-slate-500">
+      Welcome, {{ current_user.name }}. Pick a tool to get started.
+    </p>
+  </div>
+  <a href="{{ url_for('manage.create_tool') }}"
+     class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+    + Add tool
+  </a>
 </header>
 
 {% if tools %}
 <div class="grid gap-4 md:grid-cols-3">
   {% for tool in tools %}
-  <a href="{{ tool.url }}" target="_blank" rel="noopener"
-     class="block bg-white border border-slate-200 rounded-lg p-5 hover:border-slate-400
-            hover:shadow-sm transition">
-    <h2 class="font-medium text-slate-900">{{ tool.name }}</h2>
-    <p class="mt-1 text-sm text-slate-500">{{ tool.description }}</p>
-  </a>
+  <div class="flex flex-col bg-white border border-slate-200 rounded-lg p-5">
+    <a href="{{ tool.url }}" target="_blank" rel="noopener" class="group">
+      <h2 class="font-medium text-slate-900 group-hover:underline">{{ tool.name }}</h2>
+      <p class="mt-1 text-sm text-slate-500">{{ tool.description }}</p>
+    </a>
+    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+      <span>{% if tool.owner %}owned by {{ tool.owner.email }}{% else %}unowned{% endif %}</span>
+      {% if can_edit_tool(tool) %}
+      <span class="flex items-center gap-3">
+        <a href="{{ url_for('manage.edit_tool', tool_id=tool.id) }}"
+           class="text-slate-600 hover:text-slate-900">Edit</a>
+        <form method="post" action="{{ url_for('manage.delete_tool', tool_id=tool.id) }}"
+              onsubmit="return confirm('Delete “{{ tool.name }}”?');">
+          <button type="submit" class="text-red-600 hover:text-red-800">Delete</button>
+        </form>
+      </span>
+      {% endif %}
+    </div>
+  </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="text-sm text-slate-500">No tools registered yet.</p>
+<p class="text-sm text-slate-500">
+  No tools yet. <a href="{{ url_for('manage.create_tool') }}" class="underline">Add the first one</a>.
+</p>
 {% endif %}
 {% endblock %}
