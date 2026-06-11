@@ -51,7 +51,16 @@ By adhering to Anthropic's official Plugin Marketplace specification, we elimina
    * Run /plugin marketplace add https://idp.internal.company.com/api/marketplace.json to register the internal IDP.  
    * Toggle auto-updates via /plugin so their local skills always stay in sync with the central IDP repository.  
 3. **Frictionless Installation:** Developers can now use the interactive /plugin UI natively within their terminal to browse our custom internal plugins. They can install domain-specific expertise effortlessly (e.g., /plugin install billing-api-docs@internal).  
-4. **Cloud Synchronization (Chat & Cowork):** While the marketplace.json handles the local CLI experience, the IDP backend will simultaneously leverage Anthropic Enterprise APIs to mirror these active skills into the user's web-based Claude Projects and Cowork shared contexts.
+4. **Cloud Synchronization (Chat & Cowork):** While the marketplace.json handles the local CLI experience, the IDP also mirrors the same catalog into the Claude web/desktop apps and Cowork.
+
+> **✅ Realized (2026-06-06), and simpler than originally assumed.** No bespoke
+> Enterprise APIs are needed: the Claude apps consume an **org-managed plugin
+> marketplace** that **GitHub-syncs a private repo** (available on the **Team**
+> plan). So the IDP commits the same generated `marketplace.json` into a private
+> repo (`bryan-ipullrank/ipr-marketplace`, via `app/github_publisher.py`), and an
+> admin connects it once under **Org settings → Plugins → GitHub sync**. Plugins
+> then appear in every member's **Customize → Plugins** menu in Claude Desktop and
+> Cowork. (Skills work in chat + Cowork; hooks/sub-agents are Cowork-only.)
 
 **Outcome:** A ubiquitous, frictionless AI experience. A developer browses the internal marketplace, installs an organizational skill, and immediately has access to that context across their local IDE, terminal, and web-based collaborative sessions.
 
@@ -63,6 +72,6 @@ By adhering to Anthropic's official Plugin Marketplace specification, we elimina
 
 * **Phase 1 ✅ DONE:** Standalone Flask Hub \+ Flask-Dance Google OAuth, **live on PythonAnywhere**. See `Phase 1 Game Plan_ Minimal Flask IDP.md` and `README.md`.  
 * **Phase 1.5 ✅ DONE (Catalog foundation):** DB-backed tool catalog (SQLite/SQLAlchemy) + REST API + persisted users with admin/member **roles & per-tool ownership** + server-rendered **management UI**. **Live on PythonAnywhere.** Provides the patterns Phases 3/4 reuse.  
-* **Phase 3 ⏭️ NEXT (The Claude Marketplace):** Flask serves a **token-gated** `marketplace.json` cataloging internal plugins; plugin *payloads* live in **GitHub repos** (the CLI sends no auth and won't resolve relative paths over HTTP — verified against the docs). Reuses the Phase 1.5 catalog/roles/UI. **Detailed plan: `Phase 3 Game Plan_ Claude Marketplace.md`.** *(PythonAnywhere-friendly.)*  
-* **Phase 4 NEXT (GitHub Scaffolding):** Integrate PyGithub. Build the UI forms and background workers to automate repository generation. *(PythonAnywhere-friendly — uses always-on tasks + unrestricted outbound.)*  
+* **Phase 3 ✅ DONE (The Claude Marketplace):** Flask serves a **token-gated** `marketplace.json` (Claude Code channel); plugin *payloads* live in **GitHub repos**. Adds a `Plugin` catalog with a draft→pending→published **approval workflow**, a `/api/plugins` API, a management UI, a no-secrets **"Request access"** flow, and a **GitHub mirror** (Phase 3.6) that feeds the Claude Desktop/Cowork org marketplace — realizing Pillar 3 step 4 on the Team plan. **Detailed plan + decisions: `Phase 3 Game Plan_ Claude Marketplace.md`.**  
+* **Phase 4 ⏭️ NEXT (GitHub Scaffolding):** Integrate PyGithub. Build the UI forms and background workers to automate repository generation — scaffolding compliant plugin repos and registering them back in the catalog. Builds on the GitHub integration started in `app/github_publisher.py`. *(PythonAnywhere-friendly — always-on tasks + unrestricted outbound.)*  
 * **Phase 2 ⏸️ DEFERRED (Infrastructure Migration):** Containerize the Flask app. Deploy NGINX and oauth2-proxy to handle edge authentication. Strip OAuth out of the Flask layer. **Requires a Docker VM (not PythonAnywhere). Detailed plan: `Phase 2 Game Plan_ Containerized IAP.md`.**

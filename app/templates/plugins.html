@@ -19,10 +19,21 @@
               class="underline text-slate-600 hover:text-slate-900">How must a repo be structured?</button>
     </p>
   </div>
-  <a href="{{ url_for('manage.create_plugin') }}"
-     class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
-    + Add plugin
-  </a>
+  <div class="flex items-center gap-2">
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('manage.sync_marketplace_github') }}" class="m-0">
+      <button type="submit"
+              class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              title="Commit the published catalog to the GitHub marketplace repo (Desktop/Cowork channel)">
+        Sync to GitHub
+      </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('manage.create_plugin') }}"
+       class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+      + Add plugin
+    </a>
+  </div>
 </header>
 
 {% include "_repo_help.html" %}

@@ -21,7 +21,8 @@ from flask import (
 from flask_login import current_user, login_required
 
 from .authz import ROLE_ADMIN, ROLES, admin_required, can_edit_plugin, can_edit_tool
-from .plugin_status import can_transition_plugin
+from .github_publisher import sync_published_marketplace_to_github
+from .plugin_status import PLUGIN_PUBLISHED, can_transition_plugin
 from .plugin_validation import validate_plugin_payload
 from .repositories import (
     SqlAlchemyPluginRepository,
@@ -253,8 +254,37 @@ def transition_plugin(plugin_id: int):
     target = request.form.get("target", "").strip()
     if not can_transition_plugin(current_user, plugin, target):
         abort(403)
+
+    was_published = plugin.status == PLUGIN_PUBLISHED
     repo.set_status(plugin_id, target)
     flash(f"“{plugin.name}” is now {target}.", "success")
+
+    # The published set only changes when entering or leaving "published".
+    if target == PLUGIN_PUBLISHED or was_published:
+        _autosync_marketplace()
+    return redirect(url_for("routes.plugins"))
+
+
+def _autosync_marketplace() -> None:
+    """Best-effort GitHub mirror after a publish/unpublish; never blocks the UI.
+
+    Stays silent when the mirror simply isn't configured, so non-GitHub setups
+    don't see noise; surfaces real failures so an admin can retry via the button.
+    """
+    result = sync_published_marketplace_to_github()
+    if result.ok:
+        flash(result.message, "success")
+    elif "not configured" not in result.message:
+        flash(result.message, "error")
+
+
+@manage.route("/plugins/sync-github", methods=["POST"])
+@login_required
+@admin_required
+def sync_marketplace_github():
+    """Force a resync of the published catalog to the GitHub marketplace repo."""
+    result = sync_published_marketplace_to_github()
+    flash(result.message, "success" if result.ok else "error")
     return redirect(url_for("routes.plugins"))
 
 

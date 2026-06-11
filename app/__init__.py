@@ -91,6 +91,15 @@ def create_app() -> Flask:
         MARKETPLACE_DESCRIPTION=os.environ.get(
             "MARKETPLACE_DESCRIPTION", "Internal SEO & engineering plugins"
         ),
+        # GitHub mirror for the Claude Desktop/Cowork channel: the IDP commits the
+        # same marketplace.json into a private repo the org connects via GitHub
+        # sync. Unset token/repo => sync is a clear no-op (fail-closed), not a crash.
+        MARKETPLACE_REPO=os.environ.get("MARKETPLACE_REPO"),
+        MARKETPLACE_REPO_BRANCH=os.environ.get("MARKETPLACE_REPO_BRANCH", "main"),
+        MARKETPLACE_JSON_PATH=os.environ.get(
+            "MARKETPLACE_JSON_PATH", ".claude-plugin/marketplace.json"
+        ),
+        GITHUB_MARKETPLACE_TOKEN=os.environ.get("GITHUB_MARKETPLACE_TOKEN"),
     )
 
     # PythonAnywhere terminates TLS at its proxy and forwards to us over HTTP.

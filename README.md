@@ -3,15 +3,17 @@
 A Flask app, secured by Google OAuth 2.0, that serves as a single landing page
 and tool directory for internal developers.
 
-> **Status:** **live on PythonAnywhere** (paid account). Google OAuth login, a
-> SQLite-backed tool catalog with a REST API, persisted users with admin/member
-> **roles + per-tool ownership**, and a server-rendered **management UI** are all
-> in production. PythonAnywhere is the current production host.
+> **Status:** **live on PythonAnywhere** (paid account). In production: Google OAuth
+> login, a SQLite-backed **tool catalog** (REST API, roles/ownership, management UI),
+> **and** a **Claude Code plugin marketplace** — a token-gated `marketplace.json`,
+> a `Plugin` catalog with a draft→pending→published **approval workflow**, a
+> `/api/plugins` API, a management UI, a no-secrets **"Request access"** flow, and a
+> **GitHub mirror** that feeds the Claude Desktop/Cowork channel.
 >
 > **Roadmap resequenced:** Phase 2 (edge SSO via NGINX + oauth2-proxy) requires a
 > Docker-capable host, which PythonAnywhere is not — so it is **deferred** until a
-> VM is provisioned. Phases 3 and 4 run fine on PythonAnywhere and are the active
-> track. See [`Phase 2 Game Plan_ Containerized IAP.md`](./Phase%202%20Game%20Plan_%20Containerized%20IAP.md)
+> VM is provisioned. Phases 3 (done) and 4 run fine on PythonAnywhere. See
+> [`Phase 2 Game Plan_ Containerized IAP.md`](./Phase%202%20Game%20Plan_%20Containerized%20IAP.md)
 > for the why and the eventual migration plan.
 
 **Roadmap** (full detail in `Long-Term IDP Vision.md`):
@@ -20,8 +22,9 @@ and tool directory for internal developers.
 |-------|------|-------|
 | 1 | Flask hub + Flask-Dance Google OAuth on PythonAnywhere | ✅ Done |
 | 1.5 | DB-backed tool catalog + REST API + roles/ownership + management UI | ✅ Done |
-| 3 | Serve a Claude Code plugin `marketplace.json` from Flask | ⏭️ Next (in planning) — see `Phase 3 Game Plan_ Claude Marketplace.md` |
-| 4 | GitHub scaffolding via PyGithub | Planned (PA-friendly) |
+| 3 | Claude Code plugin marketplace: token-gated `marketplace.json`, approval workflow, `/api/plugins`, request-access | ✅ Done — see `Phase 3 Game Plan_ Claude Marketplace.md` |
+| 3.6 | Mirror the catalog to a private GitHub repo for the Claude Desktop/Cowork channel | ✅ Done |
+| 4 | GitHub scaffolding via PyGithub | ⏭️ Next (PA-friendly) |
 | 2 | Containerize; NGINX + oauth2-proxy edge auth; strip OAuth from Flask | ⏸️ Deferred — needs a Docker VM, not PythonAnywhere |
 
 ## Quickstart: fresh setup (no database yet)
@@ -37,10 +40,13 @@ pip install -r requirements.txt          # Flask-SQLAlchemy / Flask-Migrate are 
 cp .env.example .env                      # skip if you already have one
 #   required: FLASK_SECRET_KEY, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
 #   set:      IDP_ADMINS=bryan@ipullrank.com   (makes you admin on login)
+#   marketplace: MARKETPLACE_TOKEN (gates /marketplace.json for Claude Code)
+#   cowork sync: MARKETPLACE_REPO + GITHUB_MARKETPLACE_TOKEN (mirror to GitHub)
 #   local only: OAUTHLIB_INSECURE_TRANSPORT=1  (never on PythonAnywhere)
 
-FLASK_APP=app flask db upgrade            # builds the schema (users + tools) from migrations
+FLASK_APP=app flask db upgrade            # builds the schema (users + tools + plugins) from migrations
 FLASK_APP=app flask seed-tools            # loads placeholder tools (idempotent)
+FLASK_APP=app flask seed-plugins          # loads the plugin catalog as drafts (idempotent)
 ```
 
 Then **reload** the PythonAnywhere web app (or `python run.py` locally) and sign
@@ -69,23 +75,31 @@ in. Because your email is in `IDP_ADMINS`, your first login makes you an admin.
 
 ```
 app/
-  __init__.py     # app factory: .env load, ProxyFix, DB init, blueprint + CLI registration
-  extensions.py   # shared singletons: login_manager, db (SQLAlchemy), migrate
-  auth.py         # Google blueprint, domain check, login handler
-  models.py       # transient User(UserMixin) + persisted Tool(db.Model)
-  authz.py        # roles + pure can_edit_tool()/is_seed_admin() + admin_required
-  validation.py   # pure validate_tool_payload() — separated, unit-tested
-  repositories.py # Tool/User repositories (Protocol + SQLAlchemy impls)
-  api.py          # REST blueprint (/api/tools CRUD), session + ownership gated
-  manage.py       # server-rendered UI: tool forms, delete, /admin/users
-  routes.py       # / (login), /dashboard, /logout
-  tools.py        # SEED_TOOLS — one-time seed data for an empty catalog
-  cli.py          # `flask seed-tools`, `flask set-role` commands
-  templates/      # base / login / dashboard / tool_form / admin_users (Tailwind CDN)
-migrations/       # Flask-Migrate (Alembic) schema migrations
-wsgi.py           # production entry (PythonAnywhere)
-run.py            # local dev server
-tests/            # pytest (auth, validation, repository, api)
+  __init__.py        # app factory: .env load, ProxyFix, DB init, blueprint + CLI registration
+  extensions.py      # shared singletons: login_manager, db (SQLAlchemy), migrate
+  auth.py            # Google blueprint, domain check, login handler
+  models.py          # User(UserMixin) + persisted Tool + Plugin (db.Model)
+  authz.py           # roles + pure can_edit_tool()/can_edit_plugin()/is_seed_admin() + admin_required
+  validation.py      # pure validate_tool_payload() — separated, unit-tested
+  plugin_validation.py # pure validate_plugin_payload() (kebab name, owner/repo, semver)
+  plugin_status.py   # pure plugin lifecycle state machine (draft→pending→published)
+  repositories.py    # Tool/User/Plugin repositories (Protocol + SQLAlchemy impls)
+  api.py             # REST blueprint (/api/tools CRUD), session + ownership gated
+  api_plugins.py     # REST blueprint (/api/plugins CRUD + transition), session gated
+  marketplace.py     # token-gated GET /marketplace.json (Claude Code channel) + doc builder
+  github_publisher.py# mirrors marketplace.json to a private GitHub repo (Cowork channel)
+  access_requests.py # pure mailto builder for the no-secrets "Request access" flow
+  manage.py          # server-rendered UI: tool + plugin forms, transitions, /admin/users
+  routes.py          # / (login), /dashboard, /plugins, /logout
+  tools.py           # SEED_TOOLS — one-time seed for an empty tool catalog
+  plugins_seed.py    # SEED_PLUGINS — seed for the plugin catalog (5 real skill repos)
+  cli.py             # `flask seed-tools`, `flask seed-plugins`, `flask set-role`
+  templates/         # base / login / dashboard / tool_form / plugins / plugin_form /
+                     #   _repo_help (modal) / admin_users (Tailwind CDN)
+migrations/          # Flask-Migrate (Alembic) schema migrations
+wsgi.py              # production entry (PythonAnywhere)
+run.py               # local dev server
+tests/               # pytest (auth, validation, repository, api, plugins, marketplace, github)
 ```
 
 ## Data & API
@@ -109,10 +123,14 @@ session):
 **Schema & seed commands** (need `FLASK_APP=app`):
 
 ```bash
-FLASK_APP=app flask db upgrade     # create/upgrade the schema
+FLASK_APP=app flask db upgrade     # create/upgrade the schema (users + tools + plugins)
 FLASK_APP=app flask seed-tools     # load placeholder tiles if the table is empty
+FLASK_APP=app flask seed-plugins   # load the 5 real skill-repo plugins as drafts (idempotent per-name)
 FLASK_APP=app flask set-role someone@ipullrank.com admin   # change a role (after they've logged in once)
 ```
+
+> Seeded plugins land as **drafts** — an admin publishes them (Submit → Approve in
+> `/plugins`). Only published plugins appear in `marketplace.json`.
 
 ## Roles & ownership
 
@@ -132,6 +150,61 @@ applied on login. After that, an admin can promote/demote anyone at
 Owner dropdown), `POST /tools/<id>/delete`, and `/admin/users` (admin only). The
 dashboard shows each tool's owner and per-tile Edit/Delete controls only when you
 may edit it.
+
+## Claude Code plugin marketplace (Phase 3)
+
+The IDP doubles as an internal **Claude Code plugin marketplace**. The catalog is
+the `Plugin` model (`app/models.py`) — it mirrors `Tool` but adds a unique
+kebab-case `name` (the install id), a `repo` (`owner/repo`), a `version`, and a
+lifecycle `status`. **Flask hosts the catalog; GitHub hosts the plugin code** — the
+Claude CLI clones each plugin repo with the developer's own `gh` credentials, which
+is also where access control really lives.
+
+**Approval workflow** (`app/plugin_status.py`, a pure data-driven state machine):
+
+```
+draft ──submit──▶ pending ──approve(admin)──▶ published
+  ▲                 │  ▲                          │
+  └──withdraw───────┘  └──reject(admin)           └──unpublish(admin)──▶ draft
+```
+
+Members create/edit/own drafts and **submit** them; **only admins approve** →
+`published`. Only `published` plugins appear in `marketplace.json`. Edit permission
+is `can_edit_plugin()` (owner-or-admin); transition permission is
+`can_transition_plugin()`.
+
+**Two distribution channels, one catalog** (`build_marketplace_document()` in
+`app/marketplace.py` generates the identical document for both):
+
+| Channel | How it's consumed | Source |
+|---------|-------------------|--------|
+| **Claude Code (terminal)** | `/plugin marketplace add https://you:TOKEN@<host>/marketplace.json` | Flask `GET /marketplace.json`, gated by `MARKETPLACE_TOKEN` (HTTP Basic). Fail-closed: **401** wrong, **503** unset |
+| **Claude Desktop / Cowork** | Org settings → Plugins → GitHub sync (Team plan) | A **private GitHub repo** the IDP commits `marketplace.json` to via `app/github_publisher.py` (auto-sync on publish/unpublish + an admin "Sync to GitHub" button) |
+
+**Endpoints:**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/marketplace.json` | Published catalog — **token-gated, not the Google session** |
+| GET | `/plugins` | Management listing (status badges, transition + request-access controls) |
+| GET/POST | `/plugins/new`, `/plugins/<id>/edit` | Plugin forms (owner/admin) |
+| POST | `/plugins/<id>/transition` | One route for submit/withdraw/approve/reject/unpublish (`target` field) |
+| POST | `/plugins/<id>/delete` | Delete (owner/admin) |
+| POST | `/plugins/sync-github` | Force a resync to the GitHub repo (admin) |
+| GET/POST/PUT/DELETE | `/api/plugins[/<id>]` | JSON API mirroring `/api/tools` (session-gated) |
+| POST | `/api/plugins/<id>/transition` | Status change via API |
+
+**Request access (no secrets):** the IDP stores **no GitHub credential for plugin
+payloads**. Plugin repos are private, so an installing developer needs `gh` access;
+the **"Request access"** link on each plugin opens a pre-filled email to the owner
+(cc admins) via the pure `build_access_request_mailto()` (`app/access_requests.py`).
+
+**What a plugin repo must look like:** a Git repo with `.claude-plugin/plugin.json`
+at the root (only `name` required), with skills under `skills/<name>/SKILL.md`,
+commands in `commands/`, agents in `agents/`, etc. A repo with a single root-level
+`SKILL.md` (no manifest) auto-loads as a one-skill plugin — this is how the seeded
+repos are arranged. The `/plugins` UI has a **"required repo structure"** help modal
+(`templates/_repo_help.html`) explaining this.
 
 ## Google Cloud setup
 
@@ -220,14 +293,16 @@ avoiding Google's `redirect_uri_mismatch` error.
 
 ## What's next
 
-**Phase 3 — the Claude Code plugin marketplace** is up next on PythonAnywhere:
-Flask serves a token-gated `marketplace.json` cataloging internal plugins (whose
-code lives in GitHub repos), so developers can `/plugin marketplace add` it and
-install org skills natively. It reuses the catalog/repository/roles/ownership/UI
-patterns already built. Full design + verified spec details in
-[`Phase 3 Game Plan_ Claude Marketplace.md`](./Phase%203%20Game%20Plan_%20Claude%20Marketplace.md).
-Phase 4 (GitHub scaffolding) follows. Both add endpoints to this same Flask app
-behind the existing login.
+**Phase 3 — the Claude Code plugin marketplace — is done** (see the section above
+and [`Phase 3 Game Plan_ Claude Marketplace.md`](./Phase%203%20Game%20Plan_%20Claude%20Marketplace.md)).
+Both channels work: a token-gated `marketplace.json` for Claude Code, and a
+GitHub-synced private repo for the Claude Desktop/Cowork org marketplace.
+
+**Phase 4 — GitHub scaffolding (PyGithub)** is up next on PythonAnywhere: dynamic
+"create a new plugin/service repo" forms that scaffold a compliant repo
+(`.claude-plugin/plugin.json` + `skills/`) and register it back in this catalog —
+closing the loop so the marketplace points at repos the IDP itself created. It
+builds on the GitHub integration already started in `app/github_publisher.py`.
 
 **Phase 2 is deferred.** It moves the app into containers with **NGINX +
 oauth2-proxy** doing edge auth (true cross-tool SSO; Flask-Dance removed in favor

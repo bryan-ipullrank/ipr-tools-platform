@@ -1,6 +1,44 @@
 # **Phase 3 Game Plan: The Native Claude Code Marketplace**
 
-> **STATUS: PLANNED — not started.** Builds directly on the live catalog +
+> **STATUS: ✅ BUILT (2026-06-06).** Implemented on top of the live catalog +
+> roles/ownership + management UI. 124 tests pass. Deployed to PythonAnywhere;
+> the GitHub/Cowork mirror (Phase 3.6) needs its server env vars set (see below).
+> The sections below are the original plan; **"What actually shipped"** records
+> how it was built and the decisions that refined it.
+
+## **What actually shipped (and decisions vs. the original plan)**
+
+- **Approval workflow, not a boolean.** Instead of a simple `is_published` flag, a
+  pure state machine in `app/plugin_status.py`: `draft → pending → published`
+  (+`rejected`). Members own/edit drafts and **submit**; **only admins approve**.
+  Only `published` plugins reach `marketplace.json`. (Decision: user wanted a
+  submit-for-approval step before publishing.)
+- **Endpoint auth = one shared token.** `MARKETPLACE_TOKEN` via HTTP Basic, **fail
+  closed**: 401 wrong, **503 unset**. Per-user tokens deferred.
+- **Both optional surfaces shipped:** the `/plugins` listing/management UI **and**
+  the `/api/plugins` JSON API.
+- **"Request access" (no secrets).** Plugin repos are private; the IDP holds no
+  GitHub credential for payloads. A mailto link to the owner/admins
+  (`app/access_requests.py`) handles access requests instead of an automated grant.
+- **Repo-structure help modal** (`templates/_repo_help.html`) — explains that a
+  plugin repo needs `.claude-plugin/plugin.json` (or a single root `SKILL.md`),
+  *not* a bare `.skill` file; verified against the live Claude Code docs.
+- **Seeded 5 real private skill repos** (`app/plugins_seed.py`,
+  `bryan-ipullrank/{wikipedia-entity-builder, wikidata-querier, screaming-frog-crawl,
+  schema-markup, backlink-404-redirect-map}`) via `flask seed-plugins`.
+- **Phase 3.6 — Claude Desktop/Cowork channel (added after research).** The Claude
+  apps consume an **org-managed marketplace** that GitHub-syncs a **private repo**
+  (Team plan), not an HTTP endpoint. So the IDP also mirrors the same generated
+  `marketplace.json` into `bryan-ipullrank/ipr-marketplace` via
+  `app/github_publisher.py` (auto-sync on publish/unpublish + an admin "Sync to
+  GitHub" button). Needs `MARKETPLACE_REPO` + a fine-grained `GITHUB_MARKETPLACE_TOKEN`
+  (Contents: rw on that one repo) in the server `.env`. Connect once in Claude:
+  Org settings → Plugins → GitHub sync. This realizes Pillar 3 step 4 on the **Team**
+  plan (GitHub sync) rather than the Enterprise APIs the vision originally assumed.
+
+---
+
+> **Original plan (for reference):** Builds directly on the live catalog +
 > roles/ownership + management UI (the "Phase 1.5" work). Runs on PythonAnywhere.
 
 **Objective:** Have the Flask IDP serve a valid Claude Code **plugin marketplace**

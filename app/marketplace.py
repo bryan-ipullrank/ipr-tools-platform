@@ -19,7 +19,7 @@ from __future__ import annotations
 import hmac
 import logging
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Iterable, Mapping
 
 from flask import Blueprint, Response, current_app, jsonify
 
@@ -61,15 +61,24 @@ def marketplace_token_required(view: Callable) -> Callable:
     return wrapped
 
 
+def build_marketplace_document(config: Mapping[str, Any], plugins: Iterable[Any]) -> dict[str, Any]:
+    """Build the spec-valid marketplace document from config + published plugins.
+
+    Shared by the Flask ``/marketplace.json`` endpoint (Claude Code channel) and
+    the GitHub publisher (Claude Desktop/Cowork channel) so both emit an identical
+    document.
+    """
+    return {
+        "name": config["MARKETPLACE_NAME"],
+        "owner": {"name": config["MARKETPLACE_OWNER_NAME"]},
+        "description": config["MARKETPLACE_DESCRIPTION"],
+        "plugins": [plugin.to_marketplace_entry() for plugin in plugins],
+    }
+
+
 @marketplace.route("/marketplace.json", methods=["GET"])
 @marketplace_token_required
 def marketplace_json() -> tuple[Response, int]:
     """Return the spec-valid marketplace document of published plugins."""
     plugins = SqlAlchemyPluginRepository().list(status=PLUGIN_PUBLISHED)
-    document = {
-        "name": current_app.config["MARKETPLACE_NAME"],
-        "owner": {"name": current_app.config["MARKETPLACE_OWNER_NAME"]},
-        "description": current_app.config["MARKETPLACE_DESCRIPTION"],
-        "plugins": [plugin.to_marketplace_entry() for plugin in plugins],
-    }
-    return jsonify(document), 200
+    return jsonify(build_marketplace_document(current_app.config, plugins)), 200
