@@ -6,7 +6,13 @@ from flask import Blueprint, redirect, render_template, url_for
 from flask_dance.contrib.google import google
 from flask_login import current_user, login_required, logout_user
 
-from .repositories import SqlAlchemyToolRepository
+from .access_requests import build_access_request_mailto
+from .authz import ROLE_ADMIN
+from .repositories import (
+    SqlAlchemyPluginRepository,
+    SqlAlchemyToolRepository,
+    SqlAlchemyUserRepository,
+)
 
 routes = Blueprint("routes", __name__)
 
@@ -25,6 +31,27 @@ def dashboard():
     """The internal tool directory. Requires a signed-in, allowed user."""
     tools = SqlAlchemyToolRepository().list()
     return render_template("dashboard.html", tools=tools)
+
+
+@routes.route("/plugins")
+@login_required
+def plugins():
+    """The internal Claude Code plugin catalog with lifecycle + access controls."""
+    all_plugins = SqlAlchemyPluginRepository().list()
+    admin_emails = [
+        u.email for u in SqlAlchemyUserRepository().list() if u.role == ROLE_ADMIN
+    ]
+    access_links = {
+        plugin.id: build_access_request_mailto(
+            repo=plugin.repo,
+            plugin_label=plugin.display_name or plugin.name,
+            requester_email=current_user.email,
+            owner_email=plugin.owner.email if plugin.owner else None,
+            admin_emails=admin_emails,
+        )
+        for plugin in all_plugins
+    }
+    return render_template("plugins.html", plugins=all_plugins, access_links=access_links)
 
 
 @routes.route("/logout")

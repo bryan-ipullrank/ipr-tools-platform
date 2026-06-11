@@ -6,7 +6,12 @@ import click
 from flask import Flask
 
 from .authz import ROLES
-from .repositories import SqlAlchemyToolRepository, SqlAlchemyUserRepository
+from .plugins_seed import SEED_PLUGINS
+from .repositories import (
+    SqlAlchemyPluginRepository,
+    SqlAlchemyToolRepository,
+    SqlAlchemyUserRepository,
+)
 from .tools import SEED_TOOLS
 
 
@@ -32,6 +37,33 @@ def register_cli(app: Flask) -> None:
                 }
             )
         click.echo(f"Seeded {len(SEED_TOOLS)} tools.")
+
+    @app.cli.command("seed-plugins")
+    def seed_plugins() -> None:
+        """Insert seed plugins as drafts, skipping any that already exist.
+
+        Idempotent per-name (not all-or-nothing like seed-tools) so adding a new
+        entry to SEED_PLUGINS and re-running only inserts the missing ones. Seeds
+        land as ``draft`` — an admin reviews and publishes them.
+        """
+        repo = SqlAlchemyPluginRepository()
+        created = 0
+        for entry in SEED_PLUGINS:
+            if repo.get_by_name(entry["name"]) is not None:
+                continue
+            repo.create(
+                {
+                    "name": entry["name"],
+                    "display_name": entry.get("display_name", entry["name"]),
+                    "description": entry.get("description", ""),
+                    "repo": entry["repo"],
+                    "source_type": entry.get("source_type", "github"),
+                    "version": entry.get("version", "0.1.0"),
+                }
+            )
+            created += 1
+        skipped = len(SEED_PLUGINS) - created
+        click.echo(f"Seeded {created} new plugin(s) as drafts; {skipped} already present.")
 
     @app.cli.command("set-role")
     @click.argument("email")

@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from .authz import ROLE_ADMIN, ROLE_MEMBER
 from .extensions import db
-from .models import Tool, User
+from .models import Plugin, Tool, User
 
 
 class ToolRepository(Protocol):
@@ -66,6 +66,72 @@ class SqlAlchemyToolRepository:
         db.session.delete(tool)
         db.session.commit()
         return True
+
+
+class PluginRepository(Protocol):
+    """Contract for plugin persistence."""
+
+    def list(self, status: str | None = None) -> list[Plugin]: ...
+
+    def get(self, plugin_id: int) -> Plugin | None: ...
+
+    def get_by_name(self, name: str) -> Plugin | None: ...
+
+    def create(self, data: dict[str, Any]) -> Plugin: ...
+
+    def update(self, plugin_id: int, data: dict[str, Any]) -> Plugin | None: ...
+
+    def delete(self, plugin_id: int) -> bool: ...
+
+    def set_status(self, plugin_id: int, status: str) -> Plugin | None: ...
+
+
+class SqlAlchemyPluginRepository:
+    """SQLAlchemy-backed ``PluginRepository``."""
+
+    def list(self, status: str | None = None) -> list[Plugin]:
+        stmt = select(Plugin)
+        if status is not None:
+            stmt = stmt.where(Plugin.status == status)
+        stmt = stmt.order_by(Plugin.name)
+        return list(db.session.scalars(stmt))
+
+    def get(self, plugin_id: int) -> Plugin | None:
+        return db.session.get(Plugin, plugin_id)
+
+    def get_by_name(self, name: str) -> Plugin | None:
+        return db.session.scalar(select(Plugin).where(Plugin.name == name))
+
+    def create(self, data: dict[str, Any]) -> Plugin:
+        plugin = Plugin(**data)
+        db.session.add(plugin)
+        db.session.commit()
+        return plugin
+
+    def update(self, plugin_id: int, data: dict[str, Any]) -> Plugin | None:
+        plugin = self.get(plugin_id)
+        if plugin is None:
+            return None
+        for key, value in data.items():
+            setattr(plugin, key, value)
+        db.session.commit()
+        return plugin
+
+    def delete(self, plugin_id: int) -> bool:
+        plugin = self.get(plugin_id)
+        if plugin is None:
+            return False
+        db.session.delete(plugin)
+        db.session.commit()
+        return True
+
+    def set_status(self, plugin_id: int, status: str) -> Plugin | None:
+        plugin = self.get(plugin_id)
+        if plugin is None:
+            return None
+        plugin.status = status
+        db.session.commit()
+        return plugin
 
 
 class UserRepository(Protocol):

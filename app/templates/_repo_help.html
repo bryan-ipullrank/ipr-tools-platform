@@ -1,0 +1,89 @@
+{# Shared "required plugin repo structure" modal.
+   Open it from anywhere on the page with:
+     <button onclick="document.getElementById('repo-help').showModal()">…</button>
+   Include this partial ONCE per page (it defines id="repo-help"). #}
+<dialog id="repo-help"
+        class="rounded-lg p-0 w-full max-w-2xl shadow-xl backdrop:bg-slate-900/40">
+  <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+    <h2 class="text-lg font-semibold text-slate-900">Required plugin repo structure</h2>
+    <form method="dialog" class="m-0">
+      <button class="text-slate-400 hover:text-slate-700 text-xl leading-none" aria-label="Close">×</button>
+    </form>
+  </div>
+
+  <div class="px-6 py-5 space-y-4 text-sm text-slate-700 max-h-[70vh] overflow-y-auto">
+    <p>
+      A plugin's <strong>source is a Git repository</strong>, not a file the portal
+      serves. When a developer runs <code>/plugin install &lt;name&gt;@{{ marketplace_name }}</code>,
+      Claude Code <strong>clones the whole repo</strong> and looks for a manifest at
+      <code>.claude-plugin/plugin.json</code>. It is <strong>not</strong> a bare
+      <code>.skill</code> file — skills live unpacked under <code>skills/</code>.
+    </p>
+
+    <div>
+      <p class="font-medium text-slate-900 mb-1">Minimum viable repo</p>
+      {% raw %}
+      <pre class="bg-slate-900 text-slate-100 rounded-md p-3 text-xs overflow-x-auto">your-plugin-repo/
+├── .claude-plugin/
+│   └── plugin.json        # REQUIRED — only "name" is mandatory
+└── skills/
+    └── my-skill/
+        └── SKILL.md       # the skill itself (unpacked, not a .skill file)</pre>
+      {% endraw %}
+    </div>
+
+    <div>
+      <p class="font-medium text-slate-900 mb-1">plugin.json (manifest)</p>
+      {% raw %}
+      <pre class="bg-slate-900 text-slate-100 rounded-md p-3 text-xs overflow-x-auto">{
+  "name": "my-plugin",          // kebab-case; the component namespace
+  "version": "1.0.0",           // optional but recommended (else uses commit SHA)
+  "description": "What it does"
+}</pre>
+      {% endraw %}
+    </div>
+
+    <div>
+      <p class="font-medium text-slate-900 mb-1">Optional components (all at the repo root)</p>
+      {% raw %}
+      <pre class="bg-slate-900 text-slate-100 rounded-md p-3 text-xs overflow-x-auto">skills/&lt;name&gt;/SKILL.md   # model-invoked skills
+commands/*.md            # slash commands
+agents/*.md              # subagents
+hooks/hooks.json         # event hooks
+.mcp.json                # MCP servers</pre>
+      {% endraw %}
+      <p class="mt-1 text-xs text-slate-500">
+        Only <code>plugin.json</code> goes inside <code>.claude-plugin/</code>; everything
+        else sits at the repo root.
+      </p>
+    </div>
+
+    <div class="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+      <p class="font-medium">Two names, two jobs</p>
+      The plugin <strong>name in this catalog</strong> is the install id
+      (<code>name@{{ marketplace_name }}</code>). The <code>name</code> in the repo's
+      <code>plugin.json</code> is the <strong>component namespace</strong> (e.g.
+      <code>/my-plugin:my-skill</code>). They don't have to match.
+    </div>
+
+    <div class="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+      <p class="font-medium text-slate-700">Access</p>
+      The repo is private, so an installing developer needs GitHub access to it. If a
+      clone fails, use <strong>Request access</strong> on the plugin to ping the owner.
+    </div>
+
+    <p class="text-xs text-slate-500">
+      Full reference:
+      <a href="https://code.claude.com/docs/en/plugins-reference" target="_blank" rel="noopener"
+         class="underline hover:text-slate-700">code.claude.com/docs/en/plugins-reference</a>
+    </p>
+  </div>
+
+  <div class="border-t border-slate-200 px-6 py-3 text-right">
+    <form method="dialog" class="m-0 inline">
+      <button class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+        Got it
+      </button>
+    </form>
+  </div>
+</dialog>

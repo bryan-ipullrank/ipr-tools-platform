@@ -14,8 +14,14 @@
       </a>
       {% if current_user.is_authenticated %}
         <div class="flex items-center gap-4 text-sm">
+          <a href="{{ url_for('routes.dashboard') }}"
+             class="text-slate-700 hover:text-slate-900">Tools</a>
+          <a href="{{ url_for('routes.plugins') }}"
+             class="text-slate-700 hover:text-slate-900">Plugins</a>
           <a href="{{ url_for('manage.create_tool') }}"
              class="text-slate-700 hover:text-slate-900">+ Add tool</a>
+          <a href="{{ url_for('manage.create_plugin') }}"
+             class="text-slate-700 hover:text-slate-900">+ Add plugin</a>
           {% if is_admin %}
             <a href="{{ url_for('manage.admin_users') }}"
                class="text-slate-700 hover:text-slate-900">Admin</a>

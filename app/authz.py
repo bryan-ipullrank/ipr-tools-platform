@@ -14,7 +14,7 @@ from flask import abort
 from flask_login import current_user
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .models import Tool, User
+    from .models import Plugin, Tool, User
 
 ROLE_ADMIN = "admin"
 ROLE_MEMBER = "member"
@@ -39,6 +39,19 @@ def can_edit_tool(user: "User | Any", tool: "Tool | Any") -> bool:
     if getattr(user, "is_admin", False):
         return True
     return tool.owner_id is not None and tool.owner_id == user.id
+
+
+def can_edit_plugin(user: "User | Any", plugin: "Plugin | Any") -> bool:
+    """Admins may edit any plugin; members only the plugins they own.
+
+    Plugins with no owner (seeded/legacy) are admin-only. Status transitions are
+    governed separately by ``plugin_status.can_transition_plugin``.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_admin", False):
+        return True
+    return plugin.owner_id is not None and plugin.owner_id == user.id
 
 
 def admin_required(view: Callable) -> Callable:

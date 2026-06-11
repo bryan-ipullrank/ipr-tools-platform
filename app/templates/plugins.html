@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Plugins · iPullRank IDP{% endblock %}
+
+{% set status_tones = {
+  'draft': 'bg-slate-100 text-slate-600',
+  'pending': 'bg-amber-100 text-amber-800',
+  'published': 'bg-green-100 text-green-800',
+  'rejected': 'bg-red-100 text-red-800',
+} %}
+
+{% block content %}
+<header class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Claude Code Plugins</h1>
+    <p class="mt-1 text-sm text-slate-500">
+      Internal plugins published to <code>{{ marketplace_name }}</code>. Only
+      <span class="font-medium text-green-700">published</span> plugins appear in the marketplace.
+      <button type="button" onclick="document.getElementById('repo-help').showModal()"
+              class="underline text-slate-600 hover:text-slate-900">How must a repo be structured?</button>
+    </p>
+  </div>
+  <a href="{{ url_for('manage.create_plugin') }}"
+     class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+    + Add plugin
+  </a>
+</header>
+
+{% include "_repo_help.html" %}
+
+{% if plugins %}
+<div class="space-y-3">
+  {% for plugin in plugins %}
+  <div class="bg-white border border-slate-200 rounded-lg p-5">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <h2 class="font-medium text-slate-900">{{ plugin.display_name or plugin.name }}</h2>
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ status_tones.get(plugin.status, 'bg-slate-100 text-slate-600') }}">
+            {{ plugin.status }}
+          </span>
+        </div>
+        <p class="mt-1 text-sm text-slate-500">{{ plugin.description }}</p>
+        <p class="mt-2 text-xs text-slate-400">
+          <code>{{ plugin.name }}</code> · {{ plugin.source_type }}:{{ plugin.repo }} · v{{ plugin.version }}
+          · {% if plugin.owner %}owned by {{ plugin.owner.email }}{% else %}unowned{% endif %}
+        </p>
+      </div>
+      <span class="flex items-center gap-3 text-sm shrink-0">
+        <a href="{{ access_links[plugin.id] }}"
+           class="text-slate-600 hover:text-slate-900"
+           title="Email the owner/admins to request GitHub access to {{ plugin.repo }}">Request access</a>
+        {% if can_edit_plugin(plugin) %}
+        <a href="{{ url_for('manage.edit_plugin', plugin_id=plugin.id) }}"
+           class="text-slate-600 hover:text-slate-900">Edit</a>
+        <form method="post" action="{{ url_for('manage.delete_plugin', plugin_id=plugin.id) }}"
+              onsubmit="return confirm('Delete “{{ plugin.name }}”?');">
+          <button type="submit" class="text-red-600 hover:text-red-800">Delete</button>
+        </form>
+        {% endif %}
+      </span>
+    </div>
+
+    {% set targets = plugin_targets(plugin) %}
+    {% if targets %}
+    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+      {% for target in targets %}
+        {% set tone = 'bg-green-600 hover:bg-green-700' if target == 'published'
+                      else 'bg-red-600 hover:bg-red-700' if target in ('rejected', 'draft')
+                      else 'bg-slate-700 hover:bg-slate-800' %}
+        <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}">
+          <input type="hidden" name="target" value="{{ target }}">
+          <button type="submit"
+                  class="rounded-md px-3 py-1.5 text-xs font-medium text-white {{ tone }}">
+            {{ transition_label(plugin.status, target) }}
+          </button>
+        </form>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-slate-500">
+  No plugins yet. <a href="{{ url_for('manage.create_plugin') }}" class="underline">Add the first one</a>.
+</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ "Add plugin" if mode == "new" else "Edit plugin" }} · iPullRank IDP{% endblock %}
+
+{% set action = url_for('manage.create_plugin') if mode == 'new'
+                else url_for('manage.edit_plugin', plugin_id=plugin.id) %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <h1 class="text-2xl font-semibold text-slate-900 mb-6">
+    {{ "Add a plugin" if mode == "new" else "Edit plugin" }}
+  </h1>
+
+  {% if errors %}
+  <div class="mb-4 border border-red-200 bg-red-50 text-red-800 rounded-md px-4 py-3 text-sm">
+    <ul class="list-disc list-inside space-y-1">
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action }}" class="space-y-4 bg-white border border-slate-200 rounded-lg p-6">
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Name (kebab-case)</label>
+      <input name="name" value="{{ form.get('name', '') }}" required
+             placeholder="backlink-analyzer"
+             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-slate-400">The install id: <code>name@{{ marketplace_name }}</code>. Lowercase, hyphenated.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Display name</label>
+      <input name="display_name" value="{{ form.get('display_name', '') }}"
+             placeholder="Backlink Analyzer"
+             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Description</label>
+      <textarea name="description" rows="2"
+                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">{{ form.get('description', '') }}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">GitHub repo</label>
+        <input name="repo" value="{{ form.get('repo', '') }}" required
+               placeholder="ipullrank/backlink-analyzer"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <p class="mt-1 text-xs text-slate-400">
+          Must be a valid plugin repo.
+          <button type="button" onclick="document.getElementById('repo-help').showModal()"
+                  class="underline hover:text-slate-700">See required structure</button>
+        </p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Version</label>
+        <input name="version" value="{{ form.get('version', '') }}" required
+               placeholder="1.0.0"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+      </div>
+    </div>
+
+    {# Only GitHub is supported today; carried as a hidden field so the form is forward-compatible. #}
+    <input type="hidden" name="source_type" value="{{ form.get('source_type', 'github') }}">
+
+    {% if users %}
+    <div>
+      <label class="block text-sm font-medium text-slate-700">Owner (admin)</label>
+      <select name="owner_id"
+              class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <option value="">— unowned —</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if form.get('owner_id')|string == u.id|string %}selected{% endif %}>
+          {{ u.email }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+        {{ "Create" if mode == "new" else "Save changes" }}
+      </button>
+      <a href="{{ url_for('routes.plugins') }}" class="text-sm text-slate-600 hover:text-slate-900">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% include "_repo_help.html" %}
+{% endblock %}

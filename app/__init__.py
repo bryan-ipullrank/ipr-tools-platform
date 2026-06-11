@@ -80,6 +80,17 @@ def create_app() -> Flask:
             "DATABASE_URL", f"sqlite:///{_PROJECT_ROOT / 'idp.db'}"
         ),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        # Claude Code marketplace. MARKETPLACE_TOKEN gates /marketplace.json over
+        # HTTP Basic; the route fails closed (503) when it is unset, so the
+        # internal plugin list is never accidentally world-readable.
+        MARKETPLACE_TOKEN=os.environ.get("MARKETPLACE_TOKEN"),
+        MARKETPLACE_NAME=os.environ.get("MARKETPLACE_NAME", "ipr-tools"),
+        MARKETPLACE_OWNER_NAME=os.environ.get(
+            "MARKETPLACE_OWNER_NAME", "iPullRank Engineering"
+        ),
+        MARKETPLACE_DESCRIPTION=os.environ.get(
+            "MARKETPLACE_DESCRIPTION", "Internal SEO & engineering plugins"
+        ),
     )
 
     # PythonAnywhere terminates TLS at its proxy and forwards to us over HTTP.
@@ -90,11 +101,14 @@ def create_app() -> Flask:
     # Import here to avoid circular imports at module load time.
     from . import models  # noqa: F401  (registers models with SQLAlchemy)
     from .api import api
+    from .api_plugins import api_plugins
     from .auth import register_auth
-    from .authz import can_edit_tool
+    from .authz import can_edit_plugin, can_edit_tool
     from .cli import register_cli
     from .extensions import db, migrate
     from .manage import manage
+    from .marketplace import marketplace
+    from .plugin_status import allowed_targets, transition_label
     from .routes import routes
 
     db.init_app(app)
@@ -104,16 +118,22 @@ def create_app() -> Flask:
     register_auth(app)
     app.register_blueprint(routes)
     app.register_blueprint(api)
+    app.register_blueprint(api_plugins)
     app.register_blueprint(manage)
+    app.register_blueprint(marketplace)
     register_cli(app)
 
     @app.context_processor
     def _inject_permissions() -> dict:
-        """Expose permission helpers to all templates."""
+        """Expose permission helpers and marketplace metadata to all templates."""
         from flask_login import current_user
 
         return {
             "can_edit_tool": lambda tool: can_edit_tool(current_user, tool),
+            "can_edit_plugin": lambda plugin: can_edit_plugin(current_user, plugin),
+            "plugin_targets": lambda plugin: allowed_targets(current_user, plugin),
+            "transition_label": transition_label,
+            "marketplace_name": app.config["MARKETPLACE_NAME"],
             "is_admin": getattr(current_user, "is_admin", False),
         }
 
