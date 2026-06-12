@@ -12,6 +12,7 @@ def _payload(**overrides):
         "repo": "ipullrank/backlink-analyzer",
         "source_type": "github",
         "version": "1.0.0",
+        "category": "SEO",
     }
     data.update(overrides)
     return data
@@ -69,4 +70,11 @@ def test_marketplace_entry_shape(app_ctx):
         "description": "scoring",
         "source": {"source": "github", "repo": "ipullrank/backlink-analyzer"},
         "version": "1.0.0",
+        "category": "SEO",
     }
+
+
+def test_marketplace_entry_includes_tags_when_present(app_ctx):
+    repo = SqlAlchemyPluginRepository()
+    plugin = repo.create(_payload(tags=["json-ld", "ai-search"]))
+    assert plugin.to_marketplace_entry()["tags"] == ["json-ld", "ai-search"]

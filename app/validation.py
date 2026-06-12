@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
+from .catalog_display import parse_tags
+
 _ALLOWED_SCHEMES = {"http", "https"}
 
 
@@ -42,6 +44,10 @@ def validate_tool_payload(data: Any) -> tuple[dict[str, Any], list[str]]:
     elif not _is_valid_url(url):
         errors.append("url must be a valid http(s) URL.")
 
+    category = str(data.get("category") or "").strip()
+    if not category:
+        errors.append("category is required.")
+
     sort_order_raw = data.get("sort_order", 0)
     sort_order = 0
     try:
@@ -52,12 +58,12 @@ def validate_tool_payload(data: Any) -> tuple[dict[str, Any], list[str]]:
     if errors:
         return {}, errors
 
-    category = data.get("category")
     cleaned = {
         "name": name,
         "url": url,
         "description": str(data.get("description") or "").strip(),
-        "category": category.strip() if isinstance(category, str) and category.strip() else None,
+        "category": category,
+        "tags": parse_tags(data.get("tags")),
         "sort_order": sort_order,
         "is_active": bool(data.get("is_active", True)),
     }

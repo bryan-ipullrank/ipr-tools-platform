@@ -17,6 +17,18 @@ from .extensions import db
 from .models import Plugin, Tool, User
 
 
+def distinct_categories() -> list[str]:
+    """All non-empty categories in use across tools and plugins, for datalist hints."""
+    cats: set[str] = set()
+    for value in db.session.scalars(select(Tool.category).distinct()):
+        if value:
+            cats.add(value)
+    for value in db.session.scalars(select(Plugin.category).distinct()):
+        if value:
+            cats.add(value)
+    return sorted(cats, key=str.lower)
+
+
 class ToolRepository(Protocol):
     """Contract for tool persistence."""
 

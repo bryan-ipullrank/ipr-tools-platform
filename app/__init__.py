@@ -113,6 +113,7 @@ def create_app() -> Flask:
     from .api_plugins import api_plugins
     from .auth import register_auth
     from .authz import can_edit_plugin, can_edit_tool
+    from .catalog_display import display_tags, wip_stamp
     from .cli import register_cli
     from .extensions import db, migrate
     from .manage import manage
@@ -142,7 +143,10 @@ def create_app() -> Flask:
             "can_edit_plugin": lambda plugin: can_edit_plugin(current_user, plugin),
             "plugin_targets": lambda plugin: allowed_targets(current_user, plugin),
             "transition_label": transition_label,
+            "wip_stamp": wip_stamp,
+            "display_tags": display_tags,
             "marketplace_name": app.config["MARKETPLACE_NAME"],
+            "marketplace_repo": app.config["MARKETPLACE_REPO"] or "bryan-ipullrank/ipr-marketplace",
             "is_admin": getattr(current_user, "is_admin", False),
         }
 

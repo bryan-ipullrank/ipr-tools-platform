@@ -28,6 +28,7 @@ from .repositories import (
     SqlAlchemyPluginRepository,
     SqlAlchemyToolRepository,
     SqlAlchemyUserRepository,
+    distinct_categories,
 )
 from .validation import validate_tool_payload
 
@@ -43,6 +44,7 @@ def _form_to_payload(form) -> dict:
         "url": form.get("url", ""),
         "description": form.get("description", ""),
         "category": form.get("category", ""),
+        "tags": form.get("tags", ""),
         "sort_order": form.get("sort_order", "0") or "0",
         "is_active": "is_active" in form,
         "owner_id": form.get("owner_id", ""),
@@ -55,6 +57,7 @@ def _tool_to_form(tool) -> dict:
         "url": tool.url,
         "description": tool.description or "",
         "category": tool.category or "",
+        "tags": ", ".join(tool.tags or []),
         "sort_order": tool.sort_order,
         "is_active": tool.is_active,
         "owner_id": tool.owner_id or "",
@@ -66,22 +69,23 @@ def _owner_choices() -> list:
     return SqlAlchemyUserRepository().list() if current_user.is_admin else []
 
 
+def _render_tool_form(mode: str, tool, form: dict, errors: list):
+    return render_template(
+        "tool_form.html", mode=mode, tool=tool, form=form, errors=errors,
+        users=_owner_choices(), categories=distinct_categories(),
+    )
+
+
 @manage.route("/tools/new", methods=["GET", "POST"])
 @login_required
 def create_tool():
     if request.method == "GET":
-        return render_template(
-            "tool_form.html", mode="new", tool=None, form={}, errors=[],
-            users=_owner_choices(),
-        )
+        return _render_tool_form("new", None, {}, [])
 
     payload = _form_to_payload(request.form)
     cleaned, errors = validate_tool_payload(payload)
     if errors:
-        return render_template(
-            "tool_form.html", mode="new", tool=None, form=payload, errors=errors,
-            users=_owner_choices(),
-        )
+        return _render_tool_form("new", None, payload, errors)
 
     cleaned["owner_id"] = current_user.id  # creator owns it
     tool = SqlAlchemyToolRepository().create(cleaned)
@@ -100,18 +104,12 @@ def edit_tool(tool_id: int):
         abort(403)
 
     if request.method == "GET":
-        return render_template(
-            "tool_form.html", mode="edit", tool=tool, form=_tool_to_form(tool),
-            errors=[], users=_owner_choices(),
-        )
+        return _render_tool_form("edit", tool, _tool_to_form(tool), [])
 
     payload = _form_to_payload(request.form)
     cleaned, errors = validate_tool_payload(payload)
     if errors:
-        return render_template(
-            "tool_form.html", mode="edit", tool=tool, form=payload, errors=errors,
-            users=_owner_choices(),
-        )
+        return _render_tool_form("edit", tool, payload, errors)
 
     _apply_admin_owner_change(cleaned, request.form)
     repo.update(tool_id, cleaned)
@@ -158,6 +156,8 @@ def _plugin_form_to_payload(form) -> dict:
         "repo": form.get("repo", ""),
         "source_type": form.get("source_type", "github") or "github",
         "version": form.get("version", ""),
+        "category": form.get("category", ""),
+        "tags": form.get("tags", ""),
         "owner_id": form.get("owner_id", ""),
     }
 
@@ -170,6 +170,8 @@ def _plugin_to_form(plugin) -> dict:
         "repo": plugin.repo,
         "source_type": plugin.source_type,
         "version": plugin.version,
+        "category": plugin.category or "",
+        "tags": ", ".join(plugin.tags or []),
         "owner_id": plugin.owner_id or "",
     }
 
@@ -177,7 +179,7 @@ def _plugin_to_form(plugin) -> dict:
 def _render_plugin_form(mode: str, plugin, form: dict, errors: list):
     return render_template(
         "plugin_form.html", mode=mode, plugin=plugin, form=form, errors=errors,
-        users=_owner_choices(),
+        users=_owner_choices(), categories=distinct_categories(),
     )
 
 

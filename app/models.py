@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from flask_login import UserMixin
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import JSON, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .authz import ROLE_ADMIN, ROLE_MEMBER
@@ -54,6 +54,7 @@ class Tool(db.Model):
     url: Mapped[str] = mapped_column(nullable=False)
     description: Mapped[str] = mapped_column(default="")
     category: Mapped[Optional[str]] = mapped_column(default=None)
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=list)
     sort_order: Mapped[int] = mapped_column(default=0)
     is_active: Mapped[bool] = mapped_column(default=True)
     owner_id: Mapped[Optional[int]] = mapped_column(
@@ -76,6 +77,7 @@ class Tool(db.Model):
             "url": self.url,
             "description": self.description,
             "category": self.category,
+            "tags": self.tags or [],
             "sort_order": self.sort_order,
             "is_active": self.is_active,
             "owner_id": self.owner_id,
@@ -104,6 +106,10 @@ class Plugin(db.Model):
     repo: Mapped[str] = mapped_column(nullable=False)
     source_type: Mapped[str] = mapped_column(default="github", server_default="github")
     version: Mapped[str] = mapped_column(nullable=False)
+    category: Mapped[str] = mapped_column(
+        default="Uncategorized", server_default="Uncategorized"
+    )
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=list)
     status: Mapped[str] = mapped_column(
         default=PLUGIN_DRAFT, server_default=PLUGIN_DRAFT
     )
@@ -129,6 +135,8 @@ class Plugin(db.Model):
             "repo": self.repo,
             "source_type": self.source_type,
             "version": self.version,
+            "category": self.category,
+            "tags": self.tags or [],
             "status": self.status,
             "owner_id": self.owner_id,
             "owner_email": self.owner.email if self.owner else None,
@@ -137,11 +145,19 @@ class Plugin(db.Model):
         }
 
     def to_marketplace_entry(self) -> dict[str, Any]:
-        """Serialize to a Claude Code marketplace.json plugin entry."""
-        return {
+        """Serialize to a Claude Code marketplace.json plugin entry.
+
+        ``category``/``tags`` are spec-supported, marketplace-specific fields; tags
+        are omitted when empty to keep the document tidy.
+        """
+        entry: dict[str, Any] = {
             "name": self.name,
             "displayName": self.display_name or self.name,
             "description": self.description,
             "source": {"source": self.source_type, "repo": self.repo},
             "version": self.version,
+            "category": self.category,
         }
+        if self.tags:
+            entry["tags"] = self.tags
+        return entry

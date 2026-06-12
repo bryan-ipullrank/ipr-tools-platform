@@ -59,6 +59,8 @@ def register_cli(app: Flask) -> None:
                     "repo": entry["repo"],
                     "source_type": entry.get("source_type", "github"),
                     "version": entry.get("version", "0.1.0"),
+                    "category": entry.get("category", "Uncategorized"),
+                    "tags": entry.get("tags", []),
                 }
             )
             created += 1

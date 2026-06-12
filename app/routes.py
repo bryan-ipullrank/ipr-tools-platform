@@ -8,10 +8,12 @@ from flask_login import current_user, login_required, logout_user
 
 from .access_requests import build_access_request_mailto
 from .authz import ROLE_ADMIN
+from .catalog_display import group_by_category
 from .repositories import (
     SqlAlchemyPluginRepository,
     SqlAlchemyToolRepository,
     SqlAlchemyUserRepository,
+    distinct_categories,
 )
 
 routes = Blueprint("routes", __name__)
@@ -28,9 +30,13 @@ def login():
 @routes.route("/dashboard")
 @login_required
 def dashboard():
-    """The internal tool directory. Requires a signed-in, allowed user."""
+    """The internal tool directory, grouped by category. Requires a signed-in user."""
     tools = SqlAlchemyToolRepository().list()
-    return render_template("dashboard.html", tools=tools)
+    return render_template(
+        "dashboard.html",
+        groups=group_by_category(tools),
+        categories=distinct_categories(),
+    )
 
 
 @routes.route("/plugins")
@@ -51,7 +57,12 @@ def plugins():
         )
         for plugin in all_plugins
     }
-    return render_template("plugins.html", plugins=all_plugins, access_links=access_links)
+    return render_template(
+        "plugins.html",
+        groups=group_by_category(all_plugins),
+        access_links=access_links,
+        categories=distinct_categories(),
+    )
 
 
 @routes.route("/logout")

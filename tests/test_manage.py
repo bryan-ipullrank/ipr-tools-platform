@@ -7,7 +7,9 @@ app context — see conftest for why that matters.
 
 def _api_create(client, name="X", url="https://x.example"):
     """Create a tool via the API and return its id."""
-    return client.post("/api/tools", json={"name": name, "url": url}).get_json()["id"]
+    return client.post(
+        "/api/tools", json={"name": name, "url": url, "category": "SEO"}
+    ).get_json()["id"]
 
 
 def test_create_tool_via_form_sets_owner(make_user, client_as):
@@ -15,7 +17,7 @@ def test_create_tool_via_form_sets_owner(make_user, client_as):
     c = client_as(member)
     resp = c.post(
         "/tools/new",
-        data={"name": "Grafana", "url": "https://g.example", "is_active": "on"},
+        data={"name": "Grafana", "url": "https://g.example", "category": "SEO", "is_active": "on"},
     )
     assert resp.status_code == 302  # redirect to dashboard on success
     tools = c.get("/api/tools").get_json()
@@ -28,6 +30,26 @@ def test_create_tool_invalid_rerenders_form(make_user, client_as):
     resp = c.post("/tools/new", data={"name": "", "url": "nope"})
     assert resp.status_code == 200          # form re-rendered, not redirected
     assert b"url must be a valid" in resp.data
+
+
+def test_missing_category_rerenders_form(make_user, client_as):
+    c = client_as(make_user("m@ipullrank.com"))
+    resp = c.post("/tools/new", data={"name": "X", "url": "https://x.example"})
+    assert resp.status_code == 200
+    assert b"category is required" in resp.data
+
+
+def test_dashboard_groups_by_category_and_shows_wip(make_user, client_as):
+    c = client_as(make_user("m@ipullrank.com"))
+    c.post("/tools/new", data={"name": "Grafana", "url": "https://g.example",
+                               "category": "Monitoring", "is_active": "on"})
+    c.post("/tools/new", data={"name": "Draft Tool", "url": "https://d.example",
+                               "category": "Reporting", "tags": "WIP", "is_active": "on"})
+    resp = c.get("/dashboard")
+    body = resp.data.decode()
+    assert "<h2" in body and "Monitoring" in body and "Reporting" in body  # category headers
+    assert "wip-stamp" in body                                             # WIP stamp rendered
+    assert 'onclick="toggleCategory' in body                               # filter present
 
 
 def test_member_cannot_open_others_edit_page(make_user, client_as):
@@ -53,7 +75,7 @@ def test_admin_reassigns_owner_via_form(make_user, client_as):
     admin_c = client_as(admin)
     resp = admin_c.post(
         f"/tools/{tool_id}/edit",
-        data={"name": "X", "url": "https://x.example",
+        data={"name": "X", "url": "https://x.example", "category": "SEO",
               "owner_id": str(new_owner.id), "is_active": "on"},
     )
     assert resp.status_code == 302

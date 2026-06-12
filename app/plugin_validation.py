@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .catalog_display import parse_tags
+
 # kebab-case: lowercase alphanumerics joined by single hyphens. This is the
 # plugin's install identifier (`<name>@<marketplace>`), so it must be unique and
 # URL/CLI-safe.
@@ -61,6 +63,10 @@ def validate_plugin_payload(data: Any) -> tuple[dict[str, Any], list[str]]:
     if source_type not in _ALLOWED_SOURCE_TYPES:
         errors.append(f"source_type must be one of: {', '.join(sorted(_ALLOWED_SOURCE_TYPES))}.")
 
+    category = str(data.get("category") or "").strip()
+    if not category:
+        errors.append("category is required.")
+
     if errors:
         return {}, errors
 
@@ -72,5 +78,7 @@ def validate_plugin_payload(data: Any) -> tuple[dict[str, Any], list[str]]:
         "repo": repo,
         "source_type": source_type,
         "version": version,
+        "category": category,
+        "tags": parse_tags(data.get("tags")),
     }
     return cleaned, []

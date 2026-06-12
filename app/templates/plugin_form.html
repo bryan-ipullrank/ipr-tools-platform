@@ -57,6 +57,25 @@
       </div>
     </div>
 
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Category</label>
+        <input name="category" value="{{ form.get('category', '') }}" required list="category-options"
+               placeholder="e.g. Technical SEO"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <datalist id="category-options">
+          {% for c in categories %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Tags</label>
+        <input name="tags" value="{{ form.get('tags', '') }}"
+               placeholder="comma,separated,tags"
+               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <p class="mt-1 text-xs text-slate-400">Optional. <code>WIP</code> shows a stamp.</p>
+      </div>
+    </div>
+
     {# Only GitHub is supported today; carried as a hidden field so the form is forward-compatible. #}
     <input type="hidden" name="source_type" value="{{ form.get('source_type', 'github') }}">
 

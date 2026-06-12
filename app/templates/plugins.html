@@ -38,62 +38,112 @@
 
 {% include "_repo_help.html" %}
 
-{% if plugins %}
-<div class="space-y-3">
-  {% for plugin in plugins %}
-  <div class="bg-white border border-slate-200 rounded-lg p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2">
-          <h2 class="font-medium text-slate-900">{{ plugin.display_name or plugin.name }}</h2>
-          <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ status_tones.get(plugin.status, 'bg-slate-100 text-slate-600') }}">
-            {{ plugin.status }}
-          </span>
-        </div>
-        <p class="mt-1 text-sm text-slate-500">{{ plugin.description }}</p>
-        <p class="mt-2 text-xs text-slate-400">
-          <code>{{ plugin.name }}</code> · {{ plugin.source_type }}:{{ plugin.repo }} · v{{ plugin.version }}
-          · {% if plugin.owner %}owned by {{ plugin.owner.email }}{% else %}unowned{% endif %}
-        </p>
-      </div>
-      <span class="flex items-center gap-3 text-sm shrink-0">
-        <a href="{{ access_links[plugin.id] }}"
-           class="text-slate-600 hover:text-slate-900"
-           title="Email the owner/admins to request GitHub access to {{ plugin.repo }}">Request access</a>
-        {% if can_edit_plugin(plugin) %}
-        <a href="{{ url_for('manage.edit_plugin', plugin_id=plugin.id) }}"
-           class="text-slate-600 hover:text-slate-900">Edit</a>
-        <form method="post" action="{{ url_for('manage.delete_plugin', plugin_id=plugin.id) }}"
-              onsubmit="return confirm('Delete “{{ plugin.name }}”?');">
-          <button type="submit" class="text-red-600 hover:text-red-800">Delete</button>
-        </form>
-        {% endif %}
-      </span>
-    </div>
-
-    {% set targets = plugin_targets(plugin) %}
-    {% if targets %}
-    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-      {% for target in targets %}
-        {% set tone = 'bg-green-600 hover:bg-green-700' if target == 'published'
-                      else 'bg-red-600 hover:bg-red-700' if target in ('rejected', 'draft')
-                      else 'bg-slate-700 hover:bg-slate-800' %}
-        <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}">
-          <input type="hidden" name="target" value="{{ target }}">
-          <button type="submit"
-                  class="rounded-md px-3 py-1.5 text-xs font-medium text-white {{ tone }}">
-            {{ transition_label(plugin.status, target) }}
-          </button>
-        </form>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
+{% if groups %}
+{% if categories|length > 1 %}
+<div class="mb-6 flex flex-wrap gap-2">
+  {% for c in categories %}
+  <button type="button" data-category="{{ c }}" onclick="toggleCategory(this)"
+          class="cat-chip rounded-full border border-slate-300 bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+    {{ c }}
+  </button>
   {% endfor %}
 </div>
+{% endif %}
+
+{% for category, items in groups %}
+<section data-category="{{ category }}" class="category-section mb-8">
+  <h2 class="mb-3 text-lg font-semibold text-slate-900">{{ category }}</h2>
+  <div class="space-y-3">
+    {% for plugin in items %}
+    <div class="relative bg-white border border-slate-200 rounded-lg p-5">
+      {% if wip_stamp(plugin.tags, plugin.status == 'published') %}
+      <span class="wip-stamp absolute top-2 right-2 rounded border-2 border-red-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">WIP</span>
+      {% endif %}
+      <div role="button" tabindex="0" class="cursor-pointer"
+           onclick="document.getElementById('entry-{{ plugin.id }}').showModal()">
+        <div class="flex items-center gap-2">
+          <h3 class="font-medium text-slate-900 hover:underline">{{ plugin.display_name or plugin.name }}</h3>
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ status_tones.get(plugin.status, 'bg-slate-100 text-slate-600') }}">{{ plugin.status }}</span>
+        </div>
+        <p class="mt-1 text-sm text-slate-500">{{ plugin.description }}</p>
+        <p class="mt-2 text-xs text-slate-400"><code>{{ plugin.name }}</code> · {{ plugin.repo }} · v{{ plugin.version }}</p>
+      </div>
+
+      {% set targets = plugin_targets(plugin) %}
+      {% if targets or can_edit_plugin(plugin) %}
+      <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+        {% for target in targets %}
+          {% set tone = 'bg-green-600 hover:bg-green-700' if target == 'published'
+                        else 'bg-red-600 hover:bg-red-700' if target in ('rejected', 'draft')
+                        else 'bg-slate-700 hover:bg-slate-800' %}
+          <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}">
+            <input type="hidden" name="target" value="{{ target }}">
+            <button type="submit" class="rounded-md px-3 py-1.5 text-xs font-medium text-white {{ tone }}">{{ transition_label(plugin.status, target) }}</button>
+          </form>
+        {% endfor %}
+        {% if can_edit_plugin(plugin) %}
+        <span class="ml-auto flex items-center gap-3 text-sm">
+          <a href="{{ url_for('manage.edit_plugin', plugin_id=plugin.id) }}" class="text-slate-600 hover:text-slate-900">Edit</a>
+          <form method="post" action="{{ url_for('manage.delete_plugin', plugin_id=plugin.id) }}"
+                onsubmit="return confirm('Delete “{{ plugin.name }}”?');">
+            <button type="submit" class="text-red-600 hover:text-red-800">Delete</button>
+          </form>
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <dialog id="entry-{{ plugin.id }}" class="rounded-lg p-0 w-full max-w-lg shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h3 class="font-semibold text-slate-900">{{ plugin.display_name or plugin.name }}</h3>
+          <form method="dialog" class="m-0"><button class="text-slate-400 hover:text-slate-700 text-xl leading-none" aria-label="Close">×</button></form>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm text-slate-700">
+          <p class="text-xs text-slate-400">Category: <span class="font-medium text-slate-600">{{ plugin.category }}</span> · Status: <span class="font-medium text-slate-600">{{ plugin.status }}</span></p>
+          <p>{{ plugin.description }}</p>
+          {% set tags = display_tags(plugin.tags) %}
+          {% if tags %}
+          <div class="flex flex-wrap gap-1.5">
+            {% for t in tags %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ t }}</span>{% endfor %}
+          </div>
+          {% endif %}
+
+          {% if plugin.status == 'published' %}
+          <div class="rounded-md bg-slate-50 border border-slate-200 p-3 space-y-2 text-xs">
+            <p class="font-medium text-slate-700">Install</p>
+            <p><span class="font-medium">Claude Desktop / Cowork:</span> open <em>Customize → Plugins</em> and enable “{{ plugin.display_name or plugin.name }}”.</p>
+            <p class="font-medium">Claude Code:</p>
+            <pre class="bg-slate-900 text-slate-100 rounded p-2 overflow-x-auto">/plugin marketplace add {{ marketplace_repo }}
+/plugin install {{ plugin.name }}@{{ marketplace_name }}</pre>
+          </div>
+          {% else %}
+          <p class="text-xs text-amber-700">Not yet published — install instructions appear once it's live.</p>
+          {% endif %}
+
+          <p class="text-xs text-slate-500">
+            No access to <code>{{ plugin.repo }}</code>?
+            <a href="{{ access_links[plugin.id] }}" class="underline hover:text-slate-700">Request access</a>.
+          </p>
+        </div>
+      </dialog>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
 {% else %}
 <p class="text-sm text-slate-500">
   No plugins yet. <a href="{{ url_for('manage.create_plugin') }}" class="underline">Add the first one</a>.
 </p>
 {% endif %}
+
+<script>
+  function toggleCategory(btn) {
+    btn.classList.toggle('off');
+    const hide = btn.classList.contains('off');
+    document.querySelectorAll('section.category-section').forEach(function (s) {
+      if (s.dataset.category === btn.dataset.category) s.style.display = hide ? 'none' : '';
+    });
+  }
+</script>
 {% endblock %}

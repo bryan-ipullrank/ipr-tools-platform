@@ -5,7 +5,7 @@ from app.plugin_validation import validate_plugin_payload
 
 def _valid(**overrides):
     data = {"name": "backlink-analyzer", "repo": "ipullrank/backlink-analyzer",
-            "version": "1.0.0"}
+            "version": "1.0.0", "category": "SEO"}
     data.update(overrides)
     return data
 
@@ -68,6 +68,17 @@ def test_unknown_source_type_is_rejected():
     cleaned, errors = validate_plugin_payload(_valid(source_type="gitlab"))
     assert cleaned == {}
     assert any("source_type" in e for e in errors)
+
+
+def test_missing_category_is_rejected():
+    cleaned, errors = validate_plugin_payload(_valid(category=""))
+    assert cleaned == {}
+    assert any("category" in e for e in errors)
+
+
+def test_tags_are_parsed():
+    cleaned, _ = validate_plugin_payload(_valid(tags="a, b ,a"))
+    assert cleaned["tags"] == ["a", "b"]
 
 
 def test_non_dict_is_rejected():

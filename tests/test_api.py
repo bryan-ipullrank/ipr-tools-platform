@@ -2,7 +2,7 @@
 
 
 def _create(client, name="X", url="https://x.example"):
-    return client.post("/api/tools", json={"name": name, "url": url})
+    return client.post("/api/tools", json={"name": name, "url": url, "category": "SEO"})
 
 
 def test_list_requires_auth(client):
@@ -46,7 +46,7 @@ def test_owner_can_edit_own_tool(make_user, client_as):
     owner = make_user("owner@ipullrank.com")
     c = client_as(owner)
     tool_id = _create(c).get_json()["id"]
-    resp = c.put(f"/api/tools/{tool_id}", json={"name": "Renamed", "url": "https://r.example"})
+    resp = c.put(f"/api/tools/{tool_id}", json={"name": "Renamed", "url": "https://r.example", "category": "SEO"})
     assert resp.status_code == 200
     assert resp.get_json()["name"] == "Renamed"
 
@@ -57,7 +57,7 @@ def test_admin_can_edit_any_tool(make_user, client_as):
     tool_id = _create(client_as(member)).get_json()["id"]
 
     resp = client_as(admin).put(
-        f"/api/tools/{tool_id}", json={"name": "AdminEdit", "url": "https://a.example"}
+        f"/api/tools/{tool_id}", json={"name": "AdminEdit", "url": "https://a.example", "category": "SEO"}
     )
     assert resp.status_code == 200
 
@@ -70,7 +70,7 @@ def test_admin_reassigns_owner(make_user, client_as):
 
     resp = client_as(admin).put(
         f"/api/tools/{tool_id}",
-        json={"name": "X", "url": "https://x.example", "owner_email": "new@ipullrank.com"},
+        json={"name": "X", "url": "https://x.example", "category": "SEO", "owner_email": "new@ipullrank.com"},
     )
     assert resp.status_code == 200
     assert resp.get_json()["owner_id"] == new_owner.id
@@ -85,7 +85,7 @@ def test_member_cannot_reassign_owner(make_user, client_as):
     # Owner edits own tool but tries to hand it to someone else -> field ignored.
     resp = c.put(
         f"/api/tools/{tool_id}",
-        json={"name": "X", "url": "https://x.example", "owner_id": other.id},
+        json={"name": "X", "url": "https://x.example", "category": "SEO", "owner_id": other.id},
     )
     assert resp.status_code == 200
     assert resp.get_json()["owner_id"] == owner.id
@@ -96,7 +96,7 @@ def test_admin_reassign_to_missing_user_400(make_user, client_as):
     tool_id = _create(client_as(admin)).get_json()["id"]
     resp = client_as(admin).put(
         f"/api/tools/{tool_id}",
-        json={"name": "X", "url": "https://x.example", "owner_id": 9999},
+        json={"name": "X", "url": "https://x.example", "category": "SEO", "owner_id": 9999},
     )
     assert resp.status_code == 400
 

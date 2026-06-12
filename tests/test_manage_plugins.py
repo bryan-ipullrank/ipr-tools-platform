@@ -9,13 +9,14 @@ def _api_create(client, name="backlink-analyzer"):
     """Create a plugin via the API and return its id."""
     return client.post(
         "/api/plugins",
-        json={"name": name, "repo": "ipullrank/backlink-analyzer", "version": "1.0.0"},
+        json={"name": name, "repo": "ipullrank/backlink-analyzer",
+              "version": "1.0.0", "category": "SEO"},
     ).get_json()["id"]
 
 
 def _form(**overrides):
     data = {"name": "backlink-analyzer", "repo": "ipullrank/backlink-analyzer",
-            "version": "1.0.0", "source_type": "github"}
+            "version": "1.0.0", "source_type": "github", "category": "SEO"}
     data.update(overrides)
     return data
 
@@ -67,6 +68,16 @@ def test_plugins_listing_page_renders(make_user, client_as):
     resp = c.get("/plugins")
     assert resp.status_code == 200
     assert b"backlink-analyzer" in resp.data
+
+
+def test_plugins_grouped_and_draft_shows_wip(make_user, client_as):
+    """A draft plugin auto-shows the WIP stamp and sits under its category header."""
+    c = client_as(make_user("owner@ipullrank.com"))
+    _api_create(c)  # created as draft, category "SEO"
+    resp = c.get("/plugins")
+    body = resp.data.decode()
+    assert "<h2" in body and "SEO" in body     # category header
+    assert "wip-stamp" in body                 # draft -> WIP stamp (auto)
 
 
 def test_listing_renders_request_access_link(make_user, client_as):

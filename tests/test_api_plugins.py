@@ -5,7 +5,7 @@ def _create(client, name="backlink-analyzer", repo="ipullrank/backlink-analyzer"
             version="1.0.0"):
     return client.post(
         "/api/plugins",
-        json={"name": name, "repo": repo, "version": version},
+        json={"name": name, "repo": repo, "version": version, "category": "SEO"},
     )
 
 
@@ -60,7 +60,7 @@ def test_owner_can_edit_own_plugin(make_user, client_as):
     pid = _create(c).get_json()["id"]
     resp = c.put(
         f"/api/plugins/{pid}",
-        json={"name": "backlink-analyzer", "repo": "ipullrank/renamed", "version": "2.0.0"},
+        json={"name": "backlink-analyzer", "repo": "ipullrank/renamed", "version": "2.0.0", "category": "SEO"},
     )
     assert resp.status_code == 200
     assert resp.get_json()["repo"] == "ipullrank/renamed"
@@ -74,7 +74,7 @@ def test_admin_reassigns_owner(make_user, client_as):
     resp = client_as(admin).put(
         f"/api/plugins/{pid}",
         json={"name": "backlink-analyzer", "repo": "ipullrank/backlink-analyzer",
-              "version": "1.0.0", "owner_email": "new@ipullrank.com"},
+              "version": "1.0.0", "category": "SEO", "owner_email": "new@ipullrank.com"},
     )
     assert resp.status_code == 200
     assert resp.get_json()["owner_id"] == new_owner.id

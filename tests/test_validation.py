@@ -5,14 +5,16 @@ from app.validation import validate_tool_payload
 
 def test_valid_payload_is_normalized():
     cleaned, errors = validate_tool_payload(
-        {"name": "  Grafana ", "url": "https://g.example", "sort_order": "5"}
+        {"name": "  Grafana ", "url": "https://g.example", "category": "SEO",
+         "tags": "a, b", "sort_order": "5"}
     )
     assert errors == []
     assert cleaned["name"] == "Grafana"
     assert cleaned["url"] == "https://g.example"
     assert cleaned["sort_order"] == 5          # coerced from string
     assert cleaned["is_active"] is True        # defaulted
-    assert cleaned["category"] is None         # absent -> None
+    assert cleaned["category"] == "SEO"
+    assert cleaned["tags"] == ["a", "b"]       # parsed from comma string
 
 
 def test_missing_name_is_rejected():
@@ -41,8 +43,9 @@ def test_bad_sort_order_is_rejected():
     assert any("sort_order" in e for e in errors)
 
 
-def test_blank_category_becomes_none():
-    cleaned, _ = validate_tool_payload(
+def test_blank_category_is_rejected():
+    cleaned, errors = validate_tool_payload(
         {"name": "X", "url": "https://x.example", "category": "   "}
     )
-    assert cleaned["category"] is None
+    assert cleaned == {}
+    assert any("category" in e for e in errors)
