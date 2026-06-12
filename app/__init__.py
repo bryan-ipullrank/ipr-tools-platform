@@ -147,6 +147,9 @@ def create_app() -> Flask:
             "display_tags": display_tags,
             "marketplace_name": app.config["MARKETPLACE_NAME"],
             "marketplace_repo": app.config["MARKETPLACE_REPO"] or "bryan-ipullrank/ipr-marketplace",
+            # The GitHub account that owns the marketplace repo (and the publish token).
+            # Plugin-repo owners add this account as a collaborator so the IDP can vendor.
+            "marketplace_account": (app.config["MARKETPLACE_REPO"] or "bryan-ipullrank/ipr-marketplace").split("/")[0],
             "is_admin": getattr(current_user, "is_admin", False),
         }
 

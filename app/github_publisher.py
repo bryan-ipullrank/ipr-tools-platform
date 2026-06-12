@@ -78,8 +78,8 @@ class RepoWriter(Protocol):
     def list_blobs(self, repo: str, ref: str) -> list[dict[str, Any]]: ...
     def read_blob(self, repo: str, sha: str) -> str: ...           # base64
     def write_blob(self, repo: str, content: str, encoding: str) -> str: ...  # -> sha
-    def head(self, repo: str, branch: str) -> tuple[str, str]: ...  # (commit_sha, tree_sha)
-    def make_tree(self, repo: str, base_tree: str, entries: list[dict[str, Any]]) -> str: ...
+    def head(self, repo: str, branch: str) -> str: ...              # latest commit sha
+    def make_tree(self, repo: str, entries: list[dict[str, Any]]) -> str: ...  # full tree, no base
     def make_commit(self, repo: str, message: str, tree: str, parent: str) -> str: ...
     def move_ref(self, repo: str, branch: str, commit: str) -> None: ...
 
@@ -123,15 +123,12 @@ class GitHubRepoWriter:
         return self._post(f"/repos/{repo}/git/blobs",
                          {"content": content, "encoding": encoding})["sha"]
 
-    def head(self, repo: str, branch: str) -> tuple[str, str]:
-        ref = self._get(f"/repos/{repo}/git/ref/heads/{branch}")
-        commit_sha = ref["object"]["sha"]
-        commit = self._get(f"/repos/{repo}/git/commits/{commit_sha}")
-        return commit_sha, commit["tree"]["sha"]
+    def head(self, repo: str, branch: str) -> str:
+        return self._get(f"/repos/{repo}/git/ref/heads/{branch}")["object"]["sha"]
 
-    def make_tree(self, repo: str, base_tree: str, entries: list[dict[str, Any]]) -> str:
-        return self._post(f"/repos/{repo}/git/trees",
-                         {"base_tree": base_tree, "tree": entries})["sha"]
+    def make_tree(self, repo: str, entries: list[dict[str, Any]]) -> str:
+        # No base_tree: `entries` is the complete tree, so nothing is carried implicitly.
+        return self._post(f"/repos/{repo}/git/trees", {"tree": entries})["sha"]
 
     def make_commit(self, repo: str, message: str, tree: str, parent: str) -> str:
         return self._post(f"/repos/{repo}/git/commits",
@@ -156,13 +153,21 @@ def _build_writer_from_config() -> Optional[GitHubRepoWriter]:
 def _rebuild_tree_entries(writer: RepoWriter, mono_repo: str, branch: str,
                           json_path: str, document: dict[str, Any],
                           published: list) -> list[dict[str, Any]]:
-    """Tree ops for a full rebuild: drop existing plugins/, re-vendor, write marketplace.json."""
+    """Build the COMPLETE desired tree (no base_tree, so deletions are implicit).
+
+    Carries forward existing non-plugin files (README, LICENSE, …) by their blob
+    SHA, re-vendors every published plugin under ``plugins/<name>/``, and writes the
+    regenerated ``marketplace.json``. Old ``plugins/`` files simply aren't listed, so
+    they're dropped — no fragile null-SHA delete markers.
+    """
     entries: list[dict[str, Any]] = []
 
-    # 1. Delete every existing vendored plugin file (path + null sha removes it under base_tree).
+    # 1. Carry forward everything except the old vendored plugins and the doc we rewrite.
     for blob in writer.list_blobs(mono_repo, branch):
-        if blob["path"].startswith("plugins/"):
-            entries.append({"path": blob["path"], "sha": None})
+        path = blob["path"]
+        if path.startswith("plugins/") or path == json_path:
+            continue
+        entries.append({"path": path, "mode": blob["mode"], "type": "blob", "sha": blob["sha"]})
 
     # 2. Re-vendor each published plugin's source repo under plugins/<name>/.
     for plugin in published:
@@ -209,13 +214,17 @@ def sync_published_marketplace_to_github(
 
     try:
         entries = _rebuild_tree_entries(writer, mono_repo, branch, json_path, document, published)
-        commit_sha, base_tree = writer.head(mono_repo, branch)
-        tree = writer.make_tree(mono_repo, base_tree, entries)
+        commit_sha = writer.head(mono_repo, branch)
+        tree = writer.make_tree(mono_repo, entries)
         new_commit = writer.make_commit(mono_repo, message, tree, commit_sha)
         writer.move_ref(mono_repo, branch, new_commit)
     except requests.RequestException as exc:
         logger.error("GitHub marketplace sync failed: %s", exc)
-        return PublishResult(False, f"GitHub sync failed: {exc}")
+        return PublishResult(
+            False,
+            f"GitHub sync failed: {exc} — check that GITHUB_MARKETPLACE_TOKEN has "
+            "Contents access to the marketplace repo and every plugin's source repo.",
+        )
 
     commit_url = f"https://github.com/{mono_repo}/commit/{new_commit}"
     return PublishResult(

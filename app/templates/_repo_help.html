@@ -67,9 +67,12 @@ hooks/hooks.json         # event hooks
     </div>
 
     <div class="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
-      <p class="font-medium text-slate-700">Access</p>
-      The repo is private, so an installing developer needs GitHub access to it. If a
-      clone fails, use <strong>Request access</strong> on the plugin to ping the owner.
+      <p class="font-medium text-slate-700">Access (two sides)</p>
+      <p><strong>To publish:</strong> the IDP vendors your repo into the marketplace, so add
+      <code>{{ marketplace_account }}</code> as a collaborator (read) on a private repo —
+      otherwise publishing it will fail.</p>
+      <p class="mt-1"><strong>To install:</strong> the developer installing needs their own GitHub
+      access to the repo; if a clone fails, use <strong>Request access</strong> on the plugin.</p>
     </div>
 
     <p class="text-xs text-slate-500">

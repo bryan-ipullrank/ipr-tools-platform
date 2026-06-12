@@ -179,7 +179,15 @@ is `can_edit_plugin()` (owner-or-admin); transition permission is
 | Channel | How it's consumed | Source |
 |---------|-------------------|--------|
 | **Claude Code (terminal)** | `/plugin marketplace add https://you:TOKEN@<host>/marketplace.json` | Flask `GET /marketplace.json`, gated by `MARKETPLACE_TOKEN` (HTTP Basic). Fail-closed: **401** wrong, **503** unset |
-| **Claude Desktop / Cowork** | Org settings → Plugins → GitHub sync (Team plan) | A **private GitHub repo** the IDP commits `marketplace.json` to via `app/github_publisher.py` (auto-sync on publish/unpublish + an admin "Sync to GitHub" button) |
+| **Claude Desktop / Cowork** | Org settings → Plugins → GitHub sync (Team plan) | A **private GitHub monorepo** (`MARKETPLACE_REPO`) the IDP vendors each published plugin into and commits `marketplace.json` to via `app/github_publisher.py` (auto-sync on publish/unpublish + an admin "Sync to GitHub" button) |
+
+The GitHub mirror uses `GITHUB_MARKETPLACE_TOKEN` — a **classic PAT** with the `repo`
+scope, owned by the account that owns `MARKETPLACE_REPO`. Because the IDP vendors each
+plugin's *source* repo into the marketplace monorepo, the token must read every source
+repo; a classic PAT reaches all repos its owner can access, **including repos where the
+owner is a collaborator**. So a teammate publishes their plugin by adding the IDP's GitHub
+account as a collaborator (read) on their repo. (A fine-grained PAT can't reach other
+owners' repos, which is why the classic PAT is used.)
 
 **Endpoints:**
 

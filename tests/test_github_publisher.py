@@ -70,10 +70,9 @@ class _FakeRepoWriter:
         return sha
 
     def head(self, repo, branch):
-        return ("commit0", "tree0")
+        return "commit0"
 
-    def make_tree(self, repo, base_tree, entries):
-        assert base_tree == "tree0"
+    def make_tree(self, repo, entries):
         self.tree_entries = entries
         return "tree1"
 
@@ -126,9 +125,9 @@ def test_full_rebuild_vendors_published_and_writes_marketplace(app_ctx):
     assert fake.moved_to == ("main", "commitNEW")
 
     paths = {e["path"]: e for e in fake.tree_entries}
-    # stale plugin removed, README untouched
-    assert paths["plugins/old/SKILL.md"]["sha"] is None
-    assert "README.md" not in paths
+    # complete tree: README carried forward by its existing sha, stale plugin dropped
+    assert paths["README.md"]["sha"] == "r1"
+    assert "plugins/old/SKILL.md" not in paths
     # published plugin vendored under plugins/<name>/
     assert "plugins/schema-markup/SKILL.md" in paths
     assert "plugins/schema-markup/references/guide.md" in paths
