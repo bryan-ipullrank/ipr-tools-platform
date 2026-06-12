@@ -23,7 +23,12 @@ PLUGIN_DRAFT = "draft"
 PLUGIN_PENDING = "pending"
 PLUGIN_PUBLISHED = "published"
 PLUGIN_REJECTED = "rejected"
-PLUGIN_STATUSES = (PLUGIN_DRAFT, PLUGIN_PENDING, PLUGIN_PUBLISHED, PLUGIN_REJECTED)
+# Submitted, but the IDP can't yet read the repo — waiting for the owner to add the
+# IDP's GitHub account as a collaborator (then the IDP auto-accepts the invite).
+PLUGIN_ACCESS_PENDING = "access_pending"
+PLUGIN_STATUSES = (
+    PLUGIN_DRAFT, PLUGIN_PENDING, PLUGIN_PUBLISHED, PLUGIN_REJECTED, PLUGIN_ACCESS_PENDING,
+)
 
 # Capability required for each allowed (from, to) transition.
 #   "owner" -> owner-or-admin (via can_edit_plugin)
@@ -32,12 +37,16 @@ _CAP_OWNER = "owner"
 _CAP_ADMIN = "admin"
 
 _PLUGIN_TRANSITIONS: dict[tuple[str, str], str] = {
-    (PLUGIN_DRAFT, PLUGIN_PENDING): _CAP_OWNER,        # submit for approval
-    (PLUGIN_PENDING, PLUGIN_DRAFT): _CAP_OWNER,        # withdraw
-    (PLUGIN_PENDING, PLUGIN_PUBLISHED): _CAP_ADMIN,    # approve
-    (PLUGIN_PENDING, PLUGIN_REJECTED): _CAP_ADMIN,     # reject
-    (PLUGIN_REJECTED, PLUGIN_PENDING): _CAP_OWNER,     # resubmit
-    (PLUGIN_PUBLISHED, PLUGIN_DRAFT): _CAP_ADMIN,      # unpublish
+    (PLUGIN_DRAFT, PLUGIN_PENDING): _CAP_OWNER,            # submit for approval
+    (PLUGIN_PENDING, PLUGIN_DRAFT): _CAP_OWNER,            # withdraw
+    (PLUGIN_PENDING, PLUGIN_PUBLISHED): _CAP_ADMIN,        # approve
+    (PLUGIN_PENDING, PLUGIN_REJECTED): _CAP_ADMIN,         # reject
+    (PLUGIN_REJECTED, PLUGIN_PENDING): _CAP_OWNER,         # resubmit
+    (PLUGIN_PUBLISHED, PLUGIN_DRAFT): _CAP_ADMIN,          # unpublish
+    # Submit can divert to access_pending when the IDP lacks repo access; from there
+    # the owner re-checks (after granting access) or withdraws.
+    (PLUGIN_ACCESS_PENDING, PLUGIN_PENDING): _CAP_OWNER,   # re-check access
+    (PLUGIN_ACCESS_PENDING, PLUGIN_DRAFT): _CAP_OWNER,     # withdraw
 }
 
 
@@ -50,6 +59,8 @@ _TRANSITION_LABELS: dict[tuple[str, str], str] = {
     (PLUGIN_PENDING, PLUGIN_REJECTED): "Reject",
     (PLUGIN_REJECTED, PLUGIN_PENDING): "Resubmit",
     (PLUGIN_PUBLISHED, PLUGIN_DRAFT): "Unpublish",
+    (PLUGIN_ACCESS_PENDING, PLUGIN_PENDING): "Check access",
+    (PLUGIN_ACCESS_PENDING, PLUGIN_DRAFT): "Withdraw",
 }
 
 

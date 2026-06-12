@@ -1,10 +1,10 @@
 # **Phase 3 Game Plan: The Native Claude Code Marketplace**
 
-> **STATUS: ✅ BUILT (2026-06-06).** Implemented on top of the live catalog +
-> roles/ownership + management UI. 124 tests pass. Deployed to PythonAnywhere;
-> the GitHub/Cowork mirror (Phase 3.6) needs its server env vars set (see below).
-> The sections below are the original plan; **"What actually shipped"** records
-> how it was built and the decisions that refined it.
+> **STATUS: ✅ BUILT (Phases 3, 3.6, 3.7).** Implemented on top of the live catalog +
+> roles/ownership + management UI. **143 tests pass.** Live on PythonAnywhere, with
+> both channels working (Claude Code endpoint + the Cowork GitHub monorepo). The
+> sections below are the original plan; **"What actually shipped"** records how it was
+> built and the decisions that refined it.
 
 ## **What actually shipped (and decisions vs. the original plan)**
 
@@ -28,13 +28,47 @@
   schema-markup, backlink-404-redirect-map}`) via `flask seed-plugins`.
 - **Phase 3.6 — Claude Desktop/Cowork channel (added after research).** The Claude
   apps consume an **org-managed marketplace** that GitHub-syncs a **private repo**
-  (Team plan), not an HTTP endpoint. So the IDP also mirrors the same generated
-  `marketplace.json` into `bryan-ipullrank/ipr-marketplace` via
-  `app/github_publisher.py` (auto-sync on publish/unpublish + an admin "Sync to
-  GitHub" button). Needs `MARKETPLACE_REPO` + a fine-grained `GITHUB_MARKETPLACE_TOKEN`
-  (Contents: rw on that one repo) in the server `.env`. Connect once in Claude:
-  Org settings → Plugins → GitHub sync. This realizes Pillar 3 step 4 on the **Team**
-  plan (GitHub sync) rather than the Enterprise APIs the vision originally assumed.
+  (Team plan), not an HTTP endpoint. So the IDP also mirrors the catalog into
+  `bryan-ipullrank/ipr-marketplace` via `app/github_publisher.py` (auto-sync on
+  publish/unpublish + an admin "Sync to GitHub" button). Connect once in Claude:
+  Org settings → Plugins → GitHub sync. Realizes Pillar 3 step 4 on the **Team** plan
+  (GitHub sync) rather than the Enterprise APIs the vision originally assumed.
+
+- **Phase 3.7 — categories/tags + grouped UI + Option-A vendoring + access automation.**
+  - **Categories (required) + tags (optional)** on tools *and* plugins (migration
+    `d4512041d8fa`, backfills existing tools to `Uncategorized`). Pure helpers in
+    `app/catalog_display.py`. Grouped `<h2>` views + category filter + per-entry detail
+    modal + a red **WIP stamp** (manual `WIP` tag, or auto for unpublished plugins).
+  - **Monorepo pivot (the big one).** Org marketplaces only sync *private* content that
+    lives **inside the connected repo** — private cross-repo `source`s aren't allowed.
+    So `ipr-marketplace` became a **monorepo**: each published plugin is **vendored** into
+    `plugins/<name>/` and `marketplace.json` uses **relative `./plugins/<name>` sources**
+    with `strict:false` + `skills:["./"]` (org marketplaces also require an inline manifest
+    for a bare-`SKILL.md` plugin). The publisher does a **full rebuild** (carry kept files
+    by blob SHA + re-vendor + write marketplace.json) in **one atomic commit** via the Git
+    Data API.
+  - **Token model = classic PAT.** Because the IDP vendors each plugin's *source* repo, the
+    token must read them all — so `GITHUB_MARKETPLACE_TOKEN` is a **classic `repo`-scope PAT**
+    (reaches repos the owner is a *collaborator* on; a fine-grained PAT can't reach other
+    owners' repos).
+  - **Repo-access automation (`app/github_access.py`).** Submitting is gated on repo access:
+    `ensure_repo_access()` accepts the **catalog-matching** pending collaborator invitation
+    (`PATCH /user/repository_invitations/{id}`) and re-checks. No access → status
+    **`access_pending`** with a link to the repo's GitHub collaborators page. On-submit
+    trigger only (no cron). Owner grants on GitHub; the IDP accepts — no manual accept.
+  - **UX:** a blocking "syncing…" overlay during GitHub-touching actions; the redirect
+    refreshes `/plugins`. **XSS hardening:** event-handler attributes no longer interpolate
+    names into JS string literals (use `data-*` + `dataset`).
+
+### Lessons / gotchas (so we don't relearn them)
+- Org marketplace GitHub sync ≠ a bare URL to `marketplace.json` — it needs a **git repo**
+  with relative, in-repo plugin content (the monorepo pivot).
+- Fine-grained PAT → **404** (not 403) on repos it can't see; classic PAT + collaborator
+  access is the model.
+- `git/trees` **422**: don't delete via null-SHA entries + `base_tree`; build the **complete
+  tree with no base_tree** instead.
+- A deployed bug isn't fixed until the fix is **committed + pushed + pulled + reloaded** (we
+  chased a "recurring" 422 that was just un-deployed code).
 
 ---
 

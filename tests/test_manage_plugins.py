@@ -131,6 +131,45 @@ def test_full_approval_flow_via_forms(make_user, client_as):
     assert client_as(owner).get(f"/api/plugins/{pid}").get_json()["status"] == "published"
 
 
+def test_submit_without_repo_access_parks_in_access_pending(make_user, client_as, monkeypatch):
+    from app import manage
+    monkeypatch.setattr(manage, "ensure_repo_access", lambda repo: False)  # IDP can't read it
+
+    owner = make_user("owner@ipullrank.com")
+    c = client_as(owner)
+    pid = _api_create(c)
+    resp = c.post(f"/plugins/{pid}/transition", data={"target": "pending"})
+    assert resp.status_code == 302
+    assert c.get(f"/api/plugins/{pid}").get_json()["status"] == "access_pending"
+
+    # The listing shows the collaborator link + Check-access action.
+    body = c.get("/plugins").data.decode()
+    assert "/settings/access" in body and "Check access" in body
+
+
+def test_submit_with_repo_access_goes_pending(make_user, client_as, monkeypatch):
+    from app import manage
+    monkeypatch.setattr(manage, "ensure_repo_access", lambda repo: True)
+
+    c = client_as(make_user("owner@ipullrank.com"))
+    pid = _api_create(c)
+    c.post(f"/plugins/{pid}/transition", data={"target": "pending"})
+    assert c.get(f"/api/plugins/{pid}").get_json()["status"] == "pending"
+
+
+def test_access_pending_rechecks_and_advances(make_user, client_as, monkeypatch):
+    from app import manage
+    owner = make_user("owner@ipullrank.com")
+    c = client_as(owner)
+    pid = _api_create(c)
+
+    monkeypatch.setattr(manage, "ensure_repo_access", lambda repo: False)
+    c.post(f"/plugins/{pid}/transition", data={"target": "pending"})        # -> access_pending
+    monkeypatch.setattr(manage, "ensure_repo_access", lambda repo: True)    # owner granted access
+    c.post(f"/plugins/{pid}/transition", data={"target": "pending"})        # Check access -> pending
+    assert c.get(f"/api/plugins/{pid}").get_json()["status"] == "pending"
+
+
 def test_member_cannot_approve_via_form(make_user, client_as):
     owner = make_user("owner@ipullrank.com")
     c = client_as(owner)

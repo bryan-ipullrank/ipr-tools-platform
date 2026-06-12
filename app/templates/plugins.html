@@ -6,7 +6,9 @@
   'pending': 'bg-amber-100 text-amber-800',
   'published': 'bg-green-100 text-green-800',
   'rejected': 'bg-red-100 text-red-800',
+  'access_pending': 'bg-orange-100 text-orange-800',
 } %}
+{% set status_labels = {'access_pending': 'needs access'} %}
 
 {% block content %}
 <header class="mb-6 flex items-center justify-between">
@@ -64,11 +66,21 @@
            onclick="document.getElementById('entry-{{ plugin.id }}').showModal()">
         <div class="flex items-center gap-2">
           <h3 class="font-medium text-slate-900 hover:underline">{{ plugin.display_name or plugin.name }}</h3>
-          <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ status_tones.get(plugin.status, 'bg-slate-100 text-slate-600') }}">{{ plugin.status }}</span>
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ status_tones.get(plugin.status, 'bg-slate-100 text-slate-600') }}">{{ status_labels.get(plugin.status, plugin.status) }}</span>
         </div>
         <p class="mt-1 text-sm text-slate-500">{{ plugin.description }}</p>
         <p class="mt-2 text-xs text-slate-400"><code>{{ plugin.name }}</code> · {{ plugin.repo }} · v{{ plugin.version }}</p>
       </div>
+
+      {% if plugin.status == 'access_pending' %}
+      <div class="mt-3 rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-800">
+        The marketplace can't read <code>{{ plugin.repo }}</code> yet. Add
+        <code>{{ marketplace_account }}</code> as a collaborator (read), then click
+        <strong>Check access</strong>.
+        <a href="https://github.com/{{ plugin.repo }}/settings/access" target="_blank" rel="noopener"
+           class="underline font-medium">Open repo access settings ↗</a>
+      </div>
+      {% endif %}
 
       {% set targets = plugin_targets(plugin) %}
       {% if targets or can_edit_plugin(plugin) %}
@@ -77,12 +89,14 @@
           {% set tone = 'bg-green-600 hover:bg-green-700' if target == 'published'
                         else 'bg-red-600 hover:bg-red-700' if target in ('rejected', 'draft')
                         else 'bg-slate-700 hover:bg-slate-800' %}
-          {# These transitions hit GitHub (server auto-syncs on enter/leave 'published'). #}
-          {% set syncs = target == 'published' or plugin.status == 'published' %}
-          {% set sync_text = 'Publishing “' ~ plugin.name ~ '” to the marketplace…' if target == 'published'
-                             else 'Removing “' ~ plugin.name ~ '” from the marketplace…' %}
+          {# Transitions that hit GitHub get the blocking overlay: submit/check (access
+             check), approve (publish/vendor), unpublish (re-sync). #}
+          {% set gh_text = 'Checking repository access…' if target == 'pending'
+                           else ('Publishing “' ~ plugin.name ~ '” to the marketplace…' if target == 'published'
+                                 else ('Removing “' ~ plugin.name ~ '” from the marketplace…' if plugin.status == 'published'
+                                       else '')) %}
           <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}"
-                {% if syncs %}data-sync-text="{{ sync_text }}" onsubmit="showSyncOverlay(this.dataset.syncText)"{% endif %}>
+                {% if gh_text %}data-sync-text="{{ gh_text }}" onsubmit="showSyncOverlay(this.dataset.syncText)"{% endif %}>
             <input type="hidden" name="target" value="{{ target }}">
             <button type="submit" class="rounded-md px-3 py-1.5 text-xs font-medium text-white {{ tone }}">{{ transition_label(plugin.status, target) }}</button>
           </form>

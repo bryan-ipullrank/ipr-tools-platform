@@ -12,6 +12,7 @@ import logging
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     redirect,
     render_template,
@@ -21,8 +22,14 @@ from flask import (
 from flask_login import current_user, login_required
 
 from .authz import ROLE_ADMIN, ROLES, admin_required, can_edit_plugin, can_edit_tool
+from .github_access import ensure_repo_access
 from .github_publisher import sync_published_marketplace_to_github
-from .plugin_status import PLUGIN_PUBLISHED, can_transition_plugin
+from .plugin_status import (
+    PLUGIN_ACCESS_PENDING,
+    PLUGIN_PENDING,
+    PLUGIN_PUBLISHED,
+    can_transition_plugin,
+)
 from .plugin_validation import validate_plugin_payload
 from .repositories import (
     SqlAlchemyPluginRepository,
@@ -257,6 +264,10 @@ def transition_plugin(plugin_id: int):
     if not can_transition_plugin(current_user, plugin, target):
         abort(403)
 
+    # Submitting (or re-checking) is gated on the IDP having read access to the repo.
+    if target == PLUGIN_PENDING:
+        return _submit_for_approval(repo, plugin)
+
     was_published = plugin.status == PLUGIN_PUBLISHED
     repo.set_status(plugin_id, target)
     flash(f"“{plugin.name}” is now {target}.", "success")
@@ -264,6 +275,32 @@ def transition_plugin(plugin_id: int):
     # The published set only changes when entering or leaving "published".
     if target == PLUGIN_PUBLISHED or was_published:
         _autosync_marketplace()
+    return redirect(url_for("routes.plugins"))
+
+
+def _marketplace_account() -> str:
+    """The GitHub account that owns the marketplace repo (and the publish token)."""
+    repo = current_app.config.get("MARKETPLACE_REPO") or "bryan-ipullrank/ipr-marketplace"
+    return repo.split("/")[0]
+
+
+def _submit_for_approval(repo, plugin):
+    """Move a plugin toward review, gated on the IDP being able to read its repo.
+
+    If the IDP can read the repo (own repo, or a collaborator invite it auto-accepts),
+    the plugin goes to ``pending``. Otherwise it parks in ``access_pending`` until the
+    owner adds the IDP's GitHub account as a collaborator.
+    """
+    if ensure_repo_access(plugin.repo):
+        repo.set_status(plugin.id, PLUGIN_PENDING)
+        flash(f"“{plugin.name}” submitted for approval.", "success")
+    else:
+        repo.set_status(plugin.id, PLUGIN_ACCESS_PENDING)
+        flash(
+            f"“{plugin.name}” needs repo access: add “{_marketplace_account()}” as a "
+            f"collaborator on {plugin.repo}, then click “Check access”.",
+            "error",
+        )
     return redirect(url_for("routes.plugins"))
 
 
