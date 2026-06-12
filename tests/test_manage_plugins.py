@@ -70,6 +70,14 @@ def test_plugins_listing_page_renders(make_user, client_as):
     assert b"backlink-analyzer" in resp.data
 
 
+def test_sync_overlay_is_wired_for_admin(make_user, client_as):
+    c = client_as(make_user("a@ipullrank.com", role="admin"))
+    _api_create(c)
+    body = c.get("/plugins").data.decode()
+    assert 'id="sync-overlay"' in body      # the blocking spinner overlay
+    assert "showSyncOverlay" in body         # wired onto the Sync-to-GitHub action
+
+
 def test_plugins_grouped_and_draft_shows_wip(make_user, client_as):
     """A draft plugin auto-shows the WIP stamp and sits under its category header."""
     c = client_as(make_user("owner@ipullrank.com"))

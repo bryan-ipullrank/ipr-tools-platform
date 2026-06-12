@@ -57,5 +57,23 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  {# Blocking overlay shown during the GitHub marketplace sync (which can take a few
+     seconds). It clears automatically on the next page load (the action redirects). #}
+  <div id="sync-overlay"
+       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+    <div class="flex items-center gap-3 rounded-lg bg-white px-6 py-4 shadow-xl">
+      <span class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"></span>
+      <span id="sync-overlay-text" class="text-sm font-medium text-slate-700">Working…</span>
+    </div>
+  </div>
+  <script>
+    function showSyncOverlay(text) {
+      var o = document.getElementById('sync-overlay');
+      if (!o) return;
+      if (text) document.getElementById('sync-overlay-text').textContent = text;
+      o.classList.remove('hidden');
+    }
+  </script>
 </body>
 </html>

@@ -39,6 +39,17 @@ def test_missing_category_rerenders_form(make_user, client_as):
     assert b"category is required" in resp.data
 
 
+def test_tool_name_is_not_injected_into_js(make_user, client_as):
+    """A tool name with quotes must not break out of a JS string in onsubmit."""
+    c = client_as(make_user("m@ipullrank.com"))
+    c.post("/tools/new", data={"name": "'); alert(1);//", "url": "https://x.example",
+                               "category": "SEO", "is_active": "on"})
+    body = c.get("/dashboard").data.decode()
+    assert "confirm('" not in body              # no JS-literal interpolation sink
+    assert "this.dataset.confirm" in body        # safe data-attribute pattern instead
+    assert "&#39;" in body                       # the quote was HTML-escaped
+
+
 def test_dashboard_groups_by_category_and_shows_wip(make_user, client_as):
     c = client_as(make_user("m@ipullrank.com"))
     c.post("/tools/new", data={"name": "Grafana", "url": "https://g.example",

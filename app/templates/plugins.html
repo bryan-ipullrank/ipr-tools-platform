@@ -21,7 +21,8 @@
   </div>
   <div class="flex items-center gap-2">
     {% if is_admin %}
-    <form method="post" action="{{ url_for('manage.sync_marketplace_github') }}" class="m-0">
+    <form method="post" action="{{ url_for('manage.sync_marketplace_github') }}" class="m-0"
+          onsubmit="showSyncOverlay('Syncing the catalog to GitHub…')">
       <button type="submit"
               class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               title="Commit the published catalog to the GitHub marketplace repo (Desktop/Cowork channel)">
@@ -76,7 +77,12 @@
           {% set tone = 'bg-green-600 hover:bg-green-700' if target == 'published'
                         else 'bg-red-600 hover:bg-red-700' if target in ('rejected', 'draft')
                         else 'bg-slate-700 hover:bg-slate-800' %}
-          <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}">
+          {# These transitions hit GitHub (server auto-syncs on enter/leave 'published'). #}
+          {% set syncs = target == 'published' or plugin.status == 'published' %}
+          {% set sync_text = 'Publishing “' ~ plugin.name ~ '” to the marketplace…' if target == 'published'
+                             else 'Removing “' ~ plugin.name ~ '” from the marketplace…' %}
+          <form method="post" action="{{ url_for('manage.transition_plugin', plugin_id=plugin.id) }}"
+                {% if syncs %}data-sync-text="{{ sync_text }}" onsubmit="showSyncOverlay(this.dataset.syncText)"{% endif %}>
             <input type="hidden" name="target" value="{{ target }}">
             <button type="submit" class="rounded-md px-3 py-1.5 text-xs font-medium text-white {{ tone }}">{{ transition_label(plugin.status, target) }}</button>
           </form>
@@ -85,7 +91,7 @@
         <span class="ml-auto flex items-center gap-3 text-sm">
           <a href="{{ url_for('manage.edit_plugin', plugin_id=plugin.id) }}" class="text-slate-600 hover:text-slate-900">Edit</a>
           <form method="post" action="{{ url_for('manage.delete_plugin', plugin_id=plugin.id) }}"
-                onsubmit="return confirm('Delete “{{ plugin.name }}”?');">
+                data-confirm="Delete “{{ plugin.name }}”?" onsubmit="return confirm(this.dataset.confirm);">
             <button type="submit" class="text-red-600 hover:text-red-800">Delete</button>
           </form>
         </span>
